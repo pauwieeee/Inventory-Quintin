@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
 
 if (!process.env.DATABASE_URL) {
   console.warn('Warning: DATABASE_URL is not set. Set it to your Supabase Postgres connection string.');
@@ -70,6 +71,27 @@ async function initSchema() {
       transaction_date TIMESTAMP NOT NULL DEFAULT NOW()
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'staff',
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  const existing = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
+  if (existing.rows.length === 0) {
+    const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'admin123';
+    const password_hash = await bcrypt.hash(defaultPassword, 10);
+    await pool.query(
+      'INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)',
+      ['admin', password_hash, 'admin']
+    );
+    console.log(`Seeded default admin user (username: admin, password: ${defaultPassword}) — change this after first login.`);
+  }
 }
 
 module.exports = { pool, initSchema };

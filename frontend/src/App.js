@@ -7,6 +7,7 @@ import ProductList from './components/ProductList';
 import SalesForm from './components/SalesForm';
 import DeliveryForm from './components/DeliveryForm';
 import TransactionHistory from './components/TransactionHistory';
+import Login from './components/Login';
 
 export const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000/api';
 
@@ -19,12 +20,53 @@ const TABS = [
 ];
 
 function App() {
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('authToken'));
+  const [authUser, setAuthUser] = useState(() => {
+    const stored = localStorage.getItem('authUser');
+    return stored ? JSON.parse(stored) : null;
+  });
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [products, setProducts] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (authToken) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
+    } else {
+      delete axios.defaults.headers.common['Authorization'];
+    }
+  }, [authToken]);
+
+  const handleLogin = (token, user) => {
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('authUser', JSON.stringify(user));
+    setAuthToken(token);
+    setAuthUser(user);
+  };
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('authUser');
+    setAuthToken(null);
+    setAuthUser(null);
+  }, []);
+
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (res) => res,
+      (err) => {
+        if (err.response?.status === 401) {
+          handleLogout();
+        }
+        return Promise.reject(err);
+      }
+    );
+    return () => axios.interceptors.response.eject(interceptor);
+  }, [handleLogout]);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -51,13 +93,14 @@ function App() {
   }, [fetchProducts, fetchDashboard]);
 
   useEffect(() => {
+    if (!authToken) return;
     refreshAll();
     const interval = setInterval(() => {
       fetchProducts();
       fetchDashboard();
     }, 30000);
     return () => clearInterval(interval);
-  }, [refreshAll, fetchProducts, fetchDashboard]);
+  }, [authToken, refreshAll, fetchProducts, fetchDashboard]);
 
   // Some browsers treat Backspace as "navigate back" when focus isn't
   // inside an editable field, which would blow away the whole app mid-form.
@@ -98,11 +141,23 @@ function App() {
     fetchDashboard();
   };
 
+  if (!authToken) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   return (
     <div className="app">
       <header className="app-header">
-        <h1>📦 Inventory Management System</h1>
-        <p>Real-time stock tracking with automatic sync</p>
+        <div className="header-inner">
+          <div>
+            <h1>📦 Inventory Management System</h1>
+            <p>Real-time stock tracking with automatic sync</p>
+          </div>
+          <div className="header-right">
+            {authUser && <span className="header-user">👤 {authUser.username}</span>}
+            <button className="logout-btn" onClick={handleLogout}>Logout</button>
+          </div>
+        </div>
       </header>
 
       <nav className="tab-nav">
