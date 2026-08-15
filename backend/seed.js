@@ -1,7 +1,8 @@
-// Seeds sample phone case inventory data via the running API (http://localhost:5000).
-// Run backend first with `npm start`, then in another terminal: node seed.js
+// Seeds sample phone case inventory data via the running API.
+// Local: run backend first with `npm start`, then in another terminal: node seed.js
+// Remote: SEED_BASE=https://your-app.vercel.app/api node seed.js
 
-const BASE = 'http://localhost:5000/api';
+const BASE = process.env.SEED_BASE || 'http://localhost:5000/api';
 
 const products = [
   { name: 'iPhone 15 Pro Clear Case', sku: 'PC-IP15P-CLR', description: 'Shockproof clear TPU case for iPhone 15 Pro', current_quantity: 50, min_stock_level: 15, unit_price: 12.99 },
