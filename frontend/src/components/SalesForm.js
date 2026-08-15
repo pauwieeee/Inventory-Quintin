@@ -104,7 +104,7 @@ function SalesForm({ products, onSuccess, setError }) {
             <div className="product-detail-box">
               <div className="pd-row">
                 <span className="pd-label">Sale Amount</span>
-                <span className="pd-value">${saleAmount}</span>
+                <span className="pd-value">₱{saleAmount}</span>
               </div>
             </div>
           )}
