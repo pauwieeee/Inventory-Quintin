@@ -69,7 +69,24 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
       setSuccessMsg('Admin deleted');
       load();
     } catch (err) {
-      setError('Failed to delete admin: ' + (err.response?.data?.error || err.message));
+      const data = err.response?.data;
+      if (data?.requiresForce) {
+        const confirmForce = window.confirm(
+          `${a.display_name} still owns ${data.storeCount} store(s). Deleting will also permanently delete those stores, all their products, sales, and staff accounts.\n\nContinue with a full force delete?`
+        );
+        if (confirmForce) {
+          try {
+            await axios.delete(`${API_BASE}/team/admins/${a.id}?force=true`);
+            setSuccessMsg('Admin and everything under them was deleted');
+            load();
+            refresh();
+          } catch (err2) {
+            setError('Force delete failed: ' + (err2.response?.data?.error || err2.message));
+          }
+        }
+        return;
+      }
+      setError('Failed to delete admin: ' + (data?.error || err.message));
     }
   };
 
@@ -101,7 +118,23 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
       setSuccessMsg('Store deleted');
       refresh();
     } catch (err) {
-      setError('Failed to delete store: ' + (err.response?.data?.error || err.message));
+      const data = err.response?.data;
+      if (data?.requiresForce) {
+        const confirmForce = window.confirm(
+          `"${s.name}" still has ${data.productCount} product(s) and ${data.staffCount} staff/store account(s). Deleting will also permanently delete those products, their sales history, and those accounts.\n\nContinue with a full force delete?`
+        );
+        if (confirmForce) {
+          try {
+            await axios.delete(`${API_BASE}/stores/${s.id}?force=true`);
+            setSuccessMsg('Store and everything under it was deleted');
+            refresh();
+          } catch (err2) {
+            setError('Force delete failed: ' + (err2.response?.data?.error || err2.message));
+          }
+        }
+        return;
+      }
+      setError('Failed to delete store: ' + (data?.error || err.message));
     }
   };
 

@@ -137,24 +137,53 @@ app.put('/api/stores/:id', requireRole('host'), async (req, res) => {
   }
 });
 
+async function forceDeleteStore(client, storeId) {
+  await client.query(
+    `DELETE FROM inventory_audit WHERE product_id IN (SELECT id FROM products WHERE store_id = $1)`,
+    [storeId]
+  );
+  await client.query('DELETE FROM sales WHERE store_id = $1', [storeId]);
+  await client.query('DELETE FROM products WHERE store_id = $1', [storeId]);
+  await client.query('DELETE FROM staff_names WHERE store_id = $1', [storeId]);
+  await client.query('DELETE FROM users WHERE store_id = $1', [storeId]);
+  await client.query('DELETE FROM stores WHERE id = $1', [storeId]);
+}
+
 app.delete('/api/stores/:id', requireRole('host'), async (req, res) => {
   const { id } = req.params;
+  const force = req.query.force === 'true';
   try {
     const existing = await pool.query('SELECT * FROM stores WHERE id = $1', [id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Store not found' });
 
-    const productCount = await pool.query('SELECT COUNT(*) FROM products WHERE store_id = $1', [id]);
-    if (Number(productCount.rows[0].count) > 0) {
-      return res.status(400).json({ error: 'Cannot delete a store that still has products. Remove its products first.' });
-    }
-    const staffCount = await pool.query("SELECT COUNT(*) FROM users WHERE store_id = $1", [id]);
-    if (Number(staffCount.rows[0].count) > 0) {
-      return res.status(400).json({ error: 'Cannot delete a store that still has staff/store accounts. Remove them first.' });
+    if (!force) {
+      const productCount = await pool.query('SELECT COUNT(*) FROM products WHERE store_id = $1', [id]);
+      const staffCount = await pool.query("SELECT COUNT(*) FROM users WHERE store_id = $1", [id]);
+      if (Number(productCount.rows[0].count) > 0 || Number(staffCount.rows[0].count) > 0) {
+        return res.status(400).json({
+          error: 'This store still has products or staff/store accounts.',
+          requiresForce: true,
+          productCount: Number(productCount.rows[0].count),
+          staffCount: Number(staffCount.rows[0].count)
+        });
+      }
+      await pool.query('DELETE FROM staff_names WHERE store_id = $1', [id]);
+      await pool.query('DELETE FROM stores WHERE id = $1', [id]);
+      return res.json({ message: 'Store deleted successfully', id: Number(id) });
     }
 
-    await pool.query('DELETE FROM staff_names WHERE store_id = $1', [id]);
-    await pool.query('DELETE FROM stores WHERE id = $1', [id]);
-    res.json({ message: 'Store deleted successfully', id: Number(id) });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await forceDeleteStore(client, id);
+      await client.query('COMMIT');
+      res.json({ message: 'Store and all its products, sales, and staff were deleted', id: Number(id) });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -633,17 +662,40 @@ app.put('/api/team/admins/:id', requireRole('host'), async (req, res) => {
 
 app.delete('/api/team/admins/:id', requireRole('host'), async (req, res) => {
   const { id } = req.params;
+  const force = req.query.force === 'true';
   try {
     const existing = await pool.query("SELECT * FROM users WHERE id = $1 AND role = 'admin'", [id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Admin not found' });
 
-    const storeCount = await pool.query('SELECT COUNT(*) FROM stores WHERE admin_id = $1', [id]);
-    if (Number(storeCount.rows[0].count) > 0) {
-      return res.status(400).json({ error: 'Cannot delete an admin who still owns stores. Delete or reassign their stores first.' });
+    const ownedStores = await pool.query('SELECT id FROM stores WHERE admin_id = $1', [id]);
+
+    if (!force) {
+      if (ownedStores.rows.length > 0) {
+        return res.status(400).json({
+          error: 'This admin still owns stores.',
+          requiresForce: true,
+          storeCount: ownedStores.rows.length
+        });
+      }
+      await pool.query('DELETE FROM users WHERE id = $1', [id]);
+      return res.json({ message: 'Admin deleted successfully', id: Number(id) });
     }
 
-    await pool.query('DELETE FROM users WHERE id = $1', [id]);
-    res.json({ message: 'Admin deleted successfully', id: Number(id) });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const store of ownedStores.rows) {
+        await forceDeleteStore(client, store.id);
+      }
+      await client.query('DELETE FROM users WHERE id = $1', [id]);
+      await client.query('COMMIT');
+      res.json({ message: 'Admin and all their stores, products, sales, and staff were deleted', id: Number(id) });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
