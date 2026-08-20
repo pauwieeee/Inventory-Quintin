@@ -497,9 +497,9 @@ body {
 }
 
 .stat-card.dark {
-  background: #111;
+  background: #262626;
   color: #fff;
-  border-color: #000;
+  border-color: #333;
 }
 
 .stat-card.gray {
