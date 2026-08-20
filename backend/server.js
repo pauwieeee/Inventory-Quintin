@@ -106,11 +106,25 @@ async function getAccessibleStoreIds(user) {
   return user.storeId ? [user.storeId] : [];
 }
 
+// Read-only inventory visibility for staff: they can see stock across every
+// store under the same admin as their own store, even though they can only
+// act (sales, edits) on their own store — enforced separately wherever it matters.
+async function getInventoryViewStoreIds(user) {
+  if (user.role !== 'staff' || !user.storeId) {
+    return getAccessibleStoreIds(user);
+  }
+  const own = await pool.query('SELECT admin_id FROM stores WHERE id = $1', [user.storeId]);
+  const adminId = own.rows[0]?.admin_id;
+  if (!adminId) return [user.storeId];
+  const siblings = await pool.query('SELECT id FROM stores WHERE admin_id = $1', [adminId]);
+  return siblings.rows.map((s) => s.id);
+}
+
 // ---------- Stores ----------
 
 app.get('/api/stores', async (req, res) => {
   try {
-    const ids = await getAccessibleStoreIds(req.user);
+    const ids = await getInventoryViewStoreIds(req.user);
     if (ids.length === 0) return res.json([]);
     const result = await pool.query(
       `SELECT s.*, u.display_name AS admin_name FROM stores s JOIN users u ON u.id = s.admin_id WHERE s.id = ANY($1) ORDER BY s.name`,
@@ -278,7 +292,7 @@ app.delete('/api/staff-names/:id', async (req, res) => {
 
 app.get('/api/products', async (req, res) => {
   try {
-    const ids = await getAccessibleStoreIds(req.user);
+    const ids = await getInventoryViewStoreIds(req.user);
     if (ids.length === 0) return res.json([]);
     const { storeId, category, search } = req.query;
     let sql = `SELECT p.*, s.name AS store_name FROM products p JOIN stores s ON s.id = p.store_id WHERE p.store_id = ANY($1)`;
