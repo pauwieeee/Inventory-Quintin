@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { API_BASE } from '../App';
 
-const EMPTY_FORM = { name: '', category: '', storeId: '', price: 0, cost: 0, stock: 0 };
+const EMPTY_FORM = { name: '', sku: '', category: '', storeId: '', price: 0, cost: 0, stock: 0 };
 
 function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refresh, refreshTick }) {
   const [products, setProducts] = useState([]);
@@ -45,7 +45,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
 
   const openEdit = (p) => {
     setEditing(p);
-    setForm({ name: p.name, category: p.category, storeId: p.store_id, price: p.unit_price, cost: p.cost, stock: p.current_quantity });
+    setForm({ name: p.name, sku: p.sku || '', category: p.category, storeId: p.store_id, price: p.unit_price, cost: p.cost, stock: p.current_quantity });
     setShowForm(true);
   };
 
@@ -54,13 +54,13 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
     try {
       if (editing) {
         await axios.put(`${API_BASE}/products/${editing.id}`, {
-          name: form.name, category: form.category, unit_price: Number(form.price), cost: Number(form.cost),
+          name: form.name, sku: form.sku, category: form.category, unit_price: Number(form.price), cost: Number(form.cost),
           current_quantity: Number(form.stock), storeId: form.storeId
         });
         setSuccessMsg('Product updated');
       } else {
         await axios.post(`${API_BASE}/products`, {
-          name: form.name, category: form.category, storeId: form.storeId,
+          name: form.name, sku: form.sku, category: form.category, storeId: form.storeId,
           unit_price: Number(form.price), cost: Number(form.cost), current_quantity: Number(form.stock), min_stock_level: Math.round(Number(form.stock) * 0.2)
         });
         setSuccessMsg('Product added');
@@ -179,6 +179,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
               <thead>
                 <tr>
                   <th>Product</th>
+                  <th>SKU</th>
                   <th>Category</th>
                   <th>Store</th>
                   <th className="text-right">Price</th>
@@ -189,13 +190,14 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
               </thead>
               <tbody>
                 {products.length === 0 ? (
-                  <tr><td colSpan={canEdit ? 7 : 6} className="empty-state">No products found.</td></tr>
+                  <tr><td colSpan={canEdit ? 8 : 7} className="empty-state">No products found.</td></tr>
                 ) : (
                   products.map((p) => {
                     const low = p.current_quantity <= p.min_stock_level;
                     return (
                       <tr key={p.id}>
                         <td>{p.name} {low && <span className="badge badge-low" style={{ marginLeft: 6 }}>Low</span>}</td>
+                        <td>{p.sku || '-'}</td>
                         <td>{p.category}</td>
                         <td>{p.store_name}</td>
                         <td className="text-right">₱{Number(p.unit_price).toLocaleString()}</td>
@@ -232,6 +234,10 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
             <div className="form-group">
               <label>Product Name</label>
               <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label>SKU</label>
+              <input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="e.g. PC-IP15P-CLR" />
             </div>
             <div className="form-group">
               <label>Category</label>

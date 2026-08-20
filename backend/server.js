@@ -260,16 +260,16 @@ app.get('/api/products', async (req, res) => {
 });
 
 app.post('/api/products', requireRole('host', 'admin', 'store'), async (req, res) => {
-  const { name, category, storeId, unit_price, cost, current_quantity, min_stock_level, description } = req.body;
+  const { name, sku, category, storeId, unit_price, cost, current_quantity, min_stock_level, description } = req.body;
   if (!name || !storeId) return res.status(400).json({ error: 'name and storeId are required' });
   try {
     const ids = await getAccessibleStoreIds(req.user);
     if (!ids.includes(Number(storeId))) return res.status(403).json({ error: 'No access to this store' });
 
     const result = await pool.query(
-      `INSERT INTO products (name, category, store_id, description, current_quantity, min_stock_level, unit_price, cost)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [name, category || 'Others', storeId, description || '', current_quantity || 0, min_stock_level || 0, unit_price || 0, cost || 0]
+      `INSERT INTO products (name, sku, category, store_id, description, current_quantity, min_stock_level, unit_price, cost)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [name, sku || null, category || 'Others', storeId, description || '', current_quantity || 0, min_stock_level || 0, unit_price || 0, cost || 0]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -286,11 +286,12 @@ app.put('/api/products/:id', requireRole('host', 'admin', 'store'), async (req, 
     const ids = await getAccessibleStoreIds(req.user);
     if (!ids.includes(p.store_id)) return res.status(403).json({ error: 'No access to this store' });
 
-    const { name, category, unit_price, cost, current_quantity, min_stock_level, description, storeId } = req.body;
+    const { name, sku, category, unit_price, cost, current_quantity, min_stock_level, description, storeId } = req.body;
     const result = await pool.query(
-      `UPDATE products SET name=$1, category=$2, unit_price=$3, cost=$4, current_quantity=$5, min_stock_level=$6, description=$7, store_id=$8 WHERE id=$9 RETURNING *`,
+      `UPDATE products SET name=$1, sku=$2, category=$3, unit_price=$4, cost=$5, current_quantity=$6, min_stock_level=$7, description=$8, store_id=$9 WHERE id=$10 RETURNING *`,
       [
         name ?? p.name,
+        sku ?? p.sku,
         category ?? p.category,
         unit_price ?? p.unit_price,
         cost ?? p.cost,

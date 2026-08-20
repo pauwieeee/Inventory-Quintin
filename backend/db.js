@@ -71,6 +71,7 @@ async function initSchema() {
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
+      sku TEXT,
       category TEXT NOT NULL DEFAULT 'Others',
       store_id INTEGER NOT NULL REFERENCES stores(id),
       description TEXT,
@@ -81,6 +82,7 @@ async function initSchema() {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS sku TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sales (
