@@ -41,11 +41,11 @@ function Dashboard({ authUser, setError, refreshTick }) {
     { label: 'Daily Cash', value: peso(stats.dailyCash), sub: 'Today cash' },
     { label: 'Daily Card', value: peso(stats.dailyCard), sub: 'Today card' },
     { label: 'Daily Sales', value: stats.dailySalesCount, sub: 'Orders today' },
-    ...(isHost || isAdmin ? [{ label: 'Daily Discount', value: peso(stats.dailyDiscount), sub: 'Discount given', dark: true }] : []),
+    ...(isHost || isAdmin ? [{ label: 'Daily Discount', value: peso(stats.dailyDiscount), sub: 'Discount given', gray: true }] : []),
     { label: 'Monthly Cash', value: peso(stats.monthlyCash), sub: 'Month cash', dark: !(isHost || isAdmin) ? false : true },
     { label: 'Monthly Card', value: peso(stats.monthlyCard), sub: 'Month card', dark: true },
     { label: 'Monthly Sales', value: stats.monthlySalesCount, sub: 'Orders month', dark: true },
-    ...(isHost || isAdmin ? [{ label: 'Monthly Discount', value: peso(stats.monthlyDiscount), sub: 'Discount month', dark: true }] : [])
+    ...(isHost || isAdmin ? [{ label: 'Monthly Discount', value: peso(stats.monthlyDiscount), sub: 'Discount month', gray: true }] : [])
   ];
 
   return (
@@ -63,7 +63,7 @@ function Dashboard({ authUser, setError, refreshTick }) {
 
       <div className={`stats-grid ${cards.length > 6 ? 'cols-4' : 'cols-3'}`}>
         {cards.map((c, i) => (
-          <div key={i} className={`stat-card ${c.dark ? 'dark' : ''}`}>
+          <div key={i} className={`stat-card ${c.gray ? 'gray' : c.dark ? 'dark' : ''}`}>
             <div className="stat-label">{c.label}</div>
             <div className="stat-value">{c.value}</div>
             <div className="stat-sub">{c.sub}</div>
