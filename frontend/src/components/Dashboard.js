@@ -1,85 +1,94 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { API_BASE } from '../App';
 
-function toCSV(products) {
-  const headers = ['ID', 'Name', 'SKU', 'Description', 'Current Quantity', 'Min Stock Level', 'Unit Price'];
-  const rows = products.map((p) => [
-    p.id,
-    p.name,
-    p.sku,
-    (p.description || '').replace(/,/g, ';'),
-    p.current_quantity,
-    p.min_stock_level,
-    p.unit_price
-  ]);
-  return [headers, ...rows].map((r) => r.join(',')).join('\n');
+function peso(n) {
+  return `₱${Number(n || 0).toLocaleString()}`;
 }
 
-function downloadCSV(content, filename) {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', filename);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
+function Dashboard({ authUser, setError, refreshTick }) {
+  const [stats, setStats] = useState(null);
+  const [recentSales, setRecentSales] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-function Dashboard({ dashboard, products, onRefresh }) {
-  const handleExport = () => {
-    const csv = toCSV(products);
-    downloadCSV(csv, `inventory_export_${new Date().toISOString().slice(0, 10)}.csv`);
-  };
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      axios.get(`${API_BASE}/dashboard`),
+      axios.get(`${API_BASE}/sales`)
+    ])
+      .then(([d, s]) => {
+        setStats(d.data);
+        setRecentSales(s.data.slice(0, 5));
+      })
+      .catch((err) => setError('Failed to load dashboard: ' + (err.response?.data?.error || err.message)))
+      .finally(() => setLoading(false));
+  }, [refreshTick, setError]);
 
-  if (!dashboard) {
-    return <div className="empty-state">No dashboard data available.</div>;
+  if (loading || !stats) {
+    return (
+      <div className="spinner-container">
+        <div className="spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
   }
+
+  const isHost = authUser.role === 'host';
+  const isAdmin = authUser.role === 'admin';
+
+  const cards = [
+    { label: 'Daily Cash', value: peso(stats.dailyCash), sub: 'Today cash' },
+    { label: 'Daily Card', value: peso(stats.dailyCard), sub: 'Today card' },
+    { label: 'Daily Sales', value: stats.dailySalesCount, sub: 'Orders today' },
+    ...(isHost || isAdmin ? [{ label: 'Daily Discount', value: peso(stats.dailyDiscount), sub: 'Discount given', dark: true }] : []),
+    { label: 'Monthly Cash', value: peso(stats.monthlyCash), sub: 'Month cash', dark: !(isHost || isAdmin) ? false : true },
+    { label: 'Monthly Card', value: peso(stats.monthlyCard), sub: 'Month card', dark: true },
+    { label: 'Monthly Sales', value: stats.monthlySalesCount, sub: 'Orders month', dark: true },
+    ...(isHost || isAdmin ? [{ label: 'Monthly Discount', value: peso(stats.monthlyDiscount), sub: 'Discount month', dark: true }] : [])
+  ];
 
   return (
     <div>
-      <div className="btn-row">
-        <button className="btn btn-primary" onClick={onRefresh}>🔄 Refresh</button>
-        <button className="btn btn-secondary" onClick={handleExport}>⬇️ Export to CSV</button>
-      </div>
-
-      <div className="stats-grid">
-        <div className="stat-box">
-          <div className="stat-label">Total Products</div>
-          <div className="stat-value">{dashboard.total_products}</div>
+      <div className="page-head">
+        <div>
+          <div className="page-title">
+            {isHost ? 'Host Dashboard' : isAdmin ? 'Admin Dashboard' : 'Store Dashboard'} • {authUser.displayName}
+          </div>
         </div>
-        <div className="stat-box">
-          <div className="stat-label">Total Stock</div>
-          <div className="stat-value">{dashboard.total_stock}</div>
-        </div>
-        <div className={`stat-box ${dashboard.low_stock_items > 0 ? 'warning' : ''}`}>
-          <div className="stat-label">Low Stock Items</div>
-          <div className="stat-value">{dashboard.low_stock_items}</div>
+        <div className="badge badge-black">
+          {isHost ? `${stats.total_stores} stores` : isAdmin ? `${stats.total_stores} stores` : `${stats.total_products} products`}
         </div>
       </div>
 
-      {dashboard.low_stock_products && dashboard.low_stock_products.length > 0 && (
-        <div className="card">
-          <h2>⚠️ Low Stock Alerts</h2>
+      <div className={`stats-grid ${cards.length > 6 ? 'cols-4' : 'cols-3'}`}>
+        {cards.map((c, i) => (
+          <div key={i} className={`stat-card ${c.dark ? 'dark' : ''}`}>
+            <div className="stat-label">{c.label}</div>
+            <div className="stat-value">{c.value}</div>
+            <div className="stat-sub">{c.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {stats.low_stock_products && stats.low_stock_products.length > 0 && (
+        <div className="panel">
+          <div className="panel-title">⚠️ Low Stock Alerts</div>
           <div className="table-wrapper">
             <table>
               <thead>
                 <tr>
-                  <th>Product Name</th>
-                  <th>SKU</th>
-                  <th>Current Stock</th>
-                  <th>Min Level</th>
-                  <th>Action</th>
+                  <th>Product</th>
+                  <th className="text-right">Stock</th>
+                  <th className="text-right">Min Level</th>
                 </tr>
               </thead>
               <tbody>
-                {dashboard.low_stock_products.map((p) => (
+                {stats.low_stock_products.map((p) => (
                   <tr key={p.id}>
                     <td>{p.name}</td>
-                    <td>{p.sku}</td>
-                    <td>{p.current_quantity}</td>
-                    <td>{p.min_stock_level}</td>
-                    <td><span className="badge badge-low">Reorder Needed</span></td>
+                    <td className="text-right">{p.current_quantity}</td>
+                    <td className="text-right">{p.min_stock_level}</td>
                   </tr>
                 ))}
               </tbody>
@@ -88,45 +97,30 @@ function Dashboard({ dashboard, products, onRefresh }) {
         </div>
       )}
 
-      <div className="card">
-        <h2>📋 Full Inventory Overview</h2>
+      <div className="panel">
+        <div className="panel-title">Recent Sales</div>
         <div className="table-wrapper">
           <table>
             <thead>
               <tr>
-                <th>Name</th>
-                <th>SKU</th>
-                <th>Description</th>
-                <th>Current Stock</th>
-                <th>Min Level</th>
-                <th>Unit Price</th>
-                <th>Status</th>
+                <th>Date</th>
+                <th>Store</th>
+                <th>Product</th>
+                <th className="text-right">Total</th>
               </tr>
             </thead>
             <tbody>
-              {products.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="empty-state">No products found.</td>
-                </tr>
+              {recentSales.length === 0 ? (
+                <tr><td colSpan="4" className="empty-state">No sales yet.</td></tr>
               ) : (
-                products.map((p) => {
-                  const low = p.current_quantity <= p.min_stock_level;
-                  return (
-                    <tr key={p.id}>
-                      <td>{p.name}</td>
-                      <td>{p.sku}</td>
-                      <td>{p.description}</td>
-                      <td>{p.current_quantity}</td>
-                      <td>{p.min_stock_level}</td>
-                      <td>₱{Number(p.unit_price).toFixed(2)}</td>
-                      <td>
-                        <span className={`badge ${low ? 'badge-low' : 'badge-ok'}`}>
-                          {low ? 'Low Stock' : 'OK'}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
+                recentSales.map((s) => (
+                  <tr key={s.id}>
+                    <td>{new Date(s.sale_date).toLocaleDateString()}</td>
+                    <td>{s.store_name}</td>
+                    <td>{s.product_name} x{s.quantity_sold}</td>
+                    <td className="text-right">{peso(s.total)}</td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

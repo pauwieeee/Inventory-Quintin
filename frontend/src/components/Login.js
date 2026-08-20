@@ -2,23 +2,28 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { API_BASE } from '../App';
 
+const QUICK_ACCOUNTS = [
+  { username: 'host', password: 'host123', role: 'host', displayName: 'Host Superuser' },
+  { username: 'cellcare', password: 'cellcare123', role: 'admin', displayName: 'Cellcare' },
+  { username: 'gaminggrounds', password: 'gaminggrounds123', role: 'admin', displayName: 'Gaming Grounds' },
+  { username: 'store', password: 'store123', role: 'store', displayName: 'Cellcare Store' },
+  { username: 'store2', password: 'store2123', role: 'store', displayName: 'Gaming Grounds Store' },
+  { username: 'store3', password: 'store3123', role: 'store', displayName: 'Gamens and Gadgets Store' },
+  { username: 'cc-cindy', password: 'cc-cindy', role: 'staff', displayName: 'Cindy' },
+  { username: 'gg-jc', password: 'gg-jc', role: 'staff', displayName: 'JC' }
+];
+
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!username || !password) {
-      setError('Please enter both username and password');
-      return;
-    }
+  const doLogin = async (u, p) => {
     setError('');
     setSubmitting(true);
     try {
-      const res = await axios.post(`${API_BASE}/auth/login`, { username, password });
+      const res = await axios.post(`${API_BASE}/auth/login`, { username: u, password: p });
       onLogin(res.data.token, res.data.user);
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Please try again.');
@@ -27,55 +32,70 @@ function Login({ onLogin }) {
     }
   };
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!username || !password) {
+      setError('Please enter both username and password');
+      return;
+    }
+    doLogin(username, password);
+  };
+
   return (
     <div className="login-page">
       <div className="login-card">
-        <div className="login-logo">📦</div>
-        <h1 className="login-title">Inventory Management System</h1>
-        <p className="login-subtitle">Sign in to manage your stock</p>
+        <div className="login-brand">
+          <div className="login-logo">AH</div>
+          <div>
+            <div className="login-brand-name">AccessoryHub</div>
+            <div className="login-brand-sub">Inventory &amp; Sales System</div>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit}>
-          {error && <div className="banner banner-error login-error">{error}</div>}
-
-          <div className="form-group login-field">
+          <div className="login-field">
             <label>Username</label>
             <input
-              type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
+              placeholder="host / cellcare / store ..."
               autoFocus
-              autoComplete="username"
             />
           </div>
-
-          <div className="form-group login-field">
+          <div className="login-field">
             <label>Password</label>
-            <div className="login-password-row">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                className="login-toggle-btn"
-                onClick={() => setShowPassword((s) => !s)}
-                tabIndex={-1}
-              >
-                {showPassword ? 'Hide' : 'Show'}
-              </button>
-            </div>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••"
+            />
           </div>
-
-          <button type="submit" className="btn btn-primary login-submit" disabled={submitting}>
-            {submitting ? 'Signing in...' : 'Sign In'}
+          {error && <div className="login-error">{error}</div>}
+          <button type="submit" className="login-submit" disabled={submitting}>
+            {submitting ? 'Signing in...' : 'Login'}
           </button>
         </form>
 
-        <p className="login-footer">Real-time stock tracking with automatic sync</p>
+        <div className="login-quick">
+          <div className="login-quick-title">Quick Login Accounts</div>
+          <div className="login-quick-list">
+            {QUICK_ACCOUNTS.map((acc) => (
+              <button
+                key={acc.username}
+                type="button"
+                className="login-quick-btn"
+                onClick={() => {
+                  setUsername(acc.username);
+                  setPassword(acc.password);
+                }}
+              >
+                <b>{acc.username}</b> / {acc.password}{' '}
+                <span className="quick-meta">• {acc.role} • {acc.displayName}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

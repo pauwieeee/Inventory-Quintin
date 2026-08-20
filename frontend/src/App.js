@@ -2,21 +2,22 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import './App.css';
 
-import Dashboard from './components/Dashboard';
-import ProductList from './components/ProductList';
-import SalesForm from './components/SalesForm';
-import DeliveryForm from './components/DeliveryForm';
-import TransactionHistory from './components/TransactionHistory';
 import Login from './components/Login';
+import Dashboard from './components/Dashboard';
+import Inventory from './components/Inventory';
+import SalesPage from './components/SalesPage';
+import History from './components/History';
+import Report from './components/Report';
+import Team from './components/Team';
 
 export const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000/api';
 
-const TABS = [
-  { key: 'dashboard', label: 'Dashboard' },
-  { key: 'products', label: 'Products' },
-  { key: 'sales', label: 'Sales' },
-  { key: 'delivery', label: 'Delivery' },
-  { key: 'history', label: 'History' }
+const NAV_ITEMS = [
+  { key: 'dashboard', label: 'Dashboard', icon: '▦' },
+  { key: 'sales', label: 'Sales', icon: '🛍' },
+  { key: 'inventory', label: 'Inventory', icon: '📦' },
+  { key: 'history', label: 'History', icon: '🕘' },
+  { key: 'report', label: 'Sales Report', icon: '📊' }
 ];
 
 function App() {
@@ -26,22 +27,27 @@ function App() {
     return stored ? JSON.parse(stored) : null;
   });
 
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [products, setProducts] = useState([]);
-  const [dashboard, setDashboard] = useState(null);
+  const [page, setPage] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (authToken) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
-    } else {
-      delete axios.defaults.headers.common['Authorization'];
-    }
-  }, [authToken]);
+  const [stores, setStores] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  // Set synchronously (not in a useEffect) so it's guaranteed to be in place
+  // before any request fires — avoids a race where the first authenticated
+  // fetch goes out without the header and gets bounced with a 401.
+  if (authToken) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
+  } else {
+    delete axios.defaults.headers.common['Authorization'];
+  }
 
   const handleLogin = (token, user) => {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     localStorage.setItem('authToken', token);
     localStorage.setItem('authUser', JSON.stringify(user));
     setAuthToken(token);
@@ -59,67 +65,20 @@ function App() {
     const interceptor = axios.interceptors.response.use(
       (res) => res,
       (err) => {
-        if (err.response?.status === 401) {
-          handleLogout();
-        }
+        if (err.response?.status === 401) handleLogout();
         return Promise.reject(err);
       }
     );
     return () => axios.interceptors.response.eject(interceptor);
   }, [handleLogout]);
 
-  const fetchProducts = useCallback(async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/products`);
-      setProducts(res.data);
-    } catch (err) {
-      setError('Failed to load products: ' + (err.response?.data?.error || err.message));
-    }
-  }, []);
-
-  const fetchDashboard = useCallback(async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/dashboard`);
-      setDashboard(res.data);
-    } catch (err) {
-      setError('Failed to load dashboard: ' + (err.response?.data?.error || err.message));
-    }
-  }, []);
-
-  const refreshAll = useCallback(async () => {
-    setLoading(true);
-    await Promise.all([fetchProducts(), fetchDashboard()]);
-    setLoading(false);
-  }, [fetchProducts, fetchDashboard]);
+  const refresh = useCallback(() => setRefreshTick((t) => t + 1), []);
 
   useEffect(() => {
     if (!authToken) return;
-    refreshAll();
-    const interval = setInterval(() => {
-      fetchProducts();
-      fetchDashboard();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [authToken, refreshAll, fetchProducts, fetchDashboard]);
-
-  // Some browsers treat Backspace as "navigate back" when focus isn't
-  // inside an editable field, which would blow away the whole app mid-form.
-  useEffect(() => {
-    const blockBackspaceNavigation = (e) => {
-      if (e.key !== 'Backspace') return;
-      const el = e.target;
-      const isEditable =
-        el.tagName === 'INPUT' ||
-        el.tagName === 'TEXTAREA' ||
-        el.tagName === 'SELECT' ||
-        el.isContentEditable;
-      if (!isEditable) {
-        e.preventDefault();
-      }
-    };
-    document.addEventListener('keydown', blockBackspaceNavigation);
-    return () => document.removeEventListener('keydown', blockBackspaceNavigation);
-  }, []);
+    axios.get(`${API_BASE}/stores`).then((r) => setStores(r.data)).catch(() => {});
+    axios.get(`${API_BASE}/categories`).then((r) => setCategories(r.data)).catch(() => {});
+  }, [authToken, refreshTick]);
 
   useEffect(() => {
     if (error) {
@@ -135,88 +94,87 @@ function App() {
     }
   }, [successMsg]);
 
-  const handleTransactionSuccess = (message) => {
-    setSuccessMsg(message);
-    fetchProducts();
-    fetchDashboard();
-  };
+  // Backspace-as-browser-back guard (some browsers do this outside editable fields)
+  useEffect(() => {
+    const guard = (e) => {
+      if (e.key !== 'Backspace') return;
+      const el = e.target;
+      const editable =
+        el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable;
+      if (!editable) e.preventDefault();
+    };
+    document.addEventListener('keydown', guard);
+    return () => document.removeEventListener('keydown', guard);
+  }, []);
 
-  if (!authToken) {
+  if (!authToken || !authUser) {
     return <Login onLogin={handleLogin} />;
   }
 
+  const isHost = authUser.role === 'host';
+  const isStaff = authUser.role === 'staff';
+
+  const navItems = isHost ? [...NAV_ITEMS, { key: 'team', label: 'Team', icon: '👥' }] : NAV_ITEMS;
+
+  const sharedProps = {
+    authUser, stores, categories, search,
+    setError, setSuccessMsg, refresh, refreshTick
+  };
+
   return (
     <div className="app">
-      <header className="app-header">
-        <div className="header-inner">
-          <div>
-            <h1>📦 Inventory Management System</h1>
-            <p>Real-time stock tracking with automatic sync</p>
-          </div>
-          <div className="header-right">
-            {authUser && <span className="header-user">👤 {authUser.username}</span>}
-            <button className="logout-btn" onClick={handleLogout}>Logout</button>
-          </div>
+      <div className="topbar">
+        <button className="icon-btn" onClick={() => setSidebarOpen((s) => !s)} aria-label="Open menu">☰</button>
+        <div className="topbar-logo">AH</div>
+        <div className="topbar-brand">AccessoryHub</div>
+        <div className="topbar-search">
+          <span>🔍</span>
+          <input placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-      </header>
+        <div className="topbar-user">
+          <span>{authUser.displayName}</span>
+          <span className="role-badge">{authUser.role.toUpperCase()}</span>
+        </div>
+      </div>
 
-      <nav className="tab-nav">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+      <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+        <div className="sidebar-head">
+          <div className="topbar-brand">Menu</div>
+          <button className="icon-btn" onClick={() => setSidebarOpen(false)} aria-label="Close menu">✕</button>
+        </div>
+        <div className="sidebar-nav">
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              className={`sidebar-nav-btn ${page === item.key ? 'active' : ''}`}
+              onClick={() => { setPage(item.key); setSidebarOpen(false); }}
+            >
+              <span>{item.icon}</span> {item.label}
+            </button>
+          ))}
+        </div>
+        <div className="sidebar-footer">
+          <div className="sidebar-user-name">{authUser.displayName}</div>
+          <div className="sidebar-user-meta">
+            {authUser.username} • {authUser.role}{authUser.storeId ? ` • store #${authUser.storeId}` : ''}
+          </div>
+          {isStaff && <span className="view-only-badge" style={{ marginBottom: 8, display: 'inline-block' }}>View Only</span>}
+          <button className="logout-btn" onClick={handleLogout}>⎋ Log out</button>
+        </div>
+      </div>
 
-      <main className="app-main">
+      <div className="page-content">
         {error && <div className="banner banner-error">{error}</div>}
         {successMsg && <div className="banner banner-success">{successMsg}</div>}
 
-        {loading && !dashboard ? (
-          <div className="spinner-container">
-            <div className="spinner"></div>
-            <p>Loading...</p>
-          </div>
-        ) : (
-          <>
-            {activeTab === 'dashboard' && (
-              <Dashboard
-                dashboard={dashboard}
-                products={products}
-                onRefresh={refreshAll}
-                setError={setError}
-              />
-            )}
-            {activeTab === 'products' && (
-              <ProductList
-                products={products}
-                onChange={refreshAll}
-                setError={setError}
-                setSuccessMsg={setSuccessMsg}
-              />
-            )}
-            {activeTab === 'sales' && (
-              <SalesForm
-                products={products}
-                onSuccess={handleTransactionSuccess}
-                setError={setError}
-              />
-            )}
-            {activeTab === 'delivery' && (
-              <DeliveryForm
-                products={products}
-                onSuccess={handleTransactionSuccess}
-                setError={setError}
-              />
-            )}
-            {activeTab === 'history' && <TransactionHistory setError={setError} />}
-          </>
-        )}
-      </main>
+        {page === 'dashboard' && <Dashboard {...sharedProps} />}
+        {page === 'inventory' && <Inventory {...sharedProps} />}
+        {page === 'sales' && <SalesPage {...sharedProps} />}
+        {page === 'history' && <History {...sharedProps} />}
+        {page === 'report' && <Report {...sharedProps} />}
+        {page === 'team' && isHost && <Team {...sharedProps} />}
+      </div>
     </div>
   );
 }

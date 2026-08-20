@@ -9,7 +9,7 @@ if (!JWT_SECRET) {
 
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
+    { id: user.id, username: user.username, displayName: user.display_name, role: user.role, storeId: user.store_id },
     JWT_SECRET || 'dev-only-insecure-secret',
     { expiresIn: TOKEN_EXPIRY }
   );
