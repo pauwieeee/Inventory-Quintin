@@ -127,7 +127,11 @@ app.get('/api/stores', async (req, res) => {
     const ids = await getInventoryViewStoreIds(req.user);
     if (ids.length === 0) return res.json([]);
     const result = await pool.query(
-      `SELECT s.*, u.display_name AS admin_name FROM stores s JOIN users u ON u.id = s.admin_id WHERE s.id = ANY($1) ORDER BY s.name`,
+      `SELECT s.*, u.display_name AS admin_name, acc.username AS store_username, acc.display_name AS store_display_name
+       FROM stores s
+       JOIN users u ON u.id = s.admin_id
+       LEFT JOIN users acc ON acc.store_id = s.id AND acc.role = 'store'
+       WHERE s.id = ANY($1) ORDER BY s.name`,
       [ids]
     );
     res.json(result.rows);
@@ -137,21 +141,32 @@ app.get('/api/stores', async (req, res) => {
 });
 
 app.post('/api/stores', requireRole('host'), async (req, res) => {
-  const { name, adminId } = req.body;
+  const { name, adminId, username, password, displayName } = req.body;
   if (!name || !adminId) return res.status(400).json({ error: 'name and adminId are required' });
   try {
     const result = await pool.query(
       'INSERT INTO stores (name, admin_id) VALUES ($1, $2) RETURNING *',
       [name, adminId]
     );
-    res.status(201).json(result.rows[0]);
+    const store = result.rows[0];
+
+    if (username && password) {
+      const password_hash = await bcrypt.hash(password, 10);
+      await pool.query(
+        `INSERT INTO users (username, password_hash, display_name, role, store_id) VALUES ($1,$2,$3,'store',$4)`,
+        [username, password_hash, displayName || name, store.id]
+      );
+    }
+
+    res.status(201).json(store);
   } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Username already exists' });
     res.status(500).json({ error: err.message });
   }
 });
 
 app.put('/api/stores/:id', requireRole('host'), async (req, res) => {
-  const { name, adminId } = req.body;
+  const { name, adminId, username, password, displayName } = req.body;
   try {
     const existing = await pool.query('SELECT * FROM stores WHERE id = $1', [req.params.id]);
     const s = existing.rows[0];
@@ -160,8 +175,28 @@ app.put('/api/stores/:id', requireRole('host'), async (req, res) => {
       'UPDATE stores SET name = $1, admin_id = $2 WHERE id = $3 RETURNING *',
       [name ?? s.name, adminId ?? s.admin_id, req.params.id]
     );
+
+    if (username || password || displayName) {
+      const accountResult = await pool.query("SELECT * FROM users WHERE store_id = $1 AND role = 'store'", [req.params.id]);
+      const account = accountResult.rows[0];
+      if (account) {
+        const password_hash = password ? await bcrypt.hash(password, 10) : account.password_hash;
+        await pool.query(
+          'UPDATE users SET username = $1, display_name = $2, password_hash = $3 WHERE id = $4',
+          [username || account.username, displayName ?? account.display_name, password_hash, account.id]
+        );
+      } else if (username && password) {
+        const password_hash = await bcrypt.hash(password, 10);
+        await pool.query(
+          `INSERT INTO users (username, password_hash, display_name, role, store_id) VALUES ($1,$2,$3,'store',$4)`,
+          [username, password_hash, displayName || result.rows[0].name, req.params.id]
+        );
+      }
+    }
+
     res.json(result.rows[0]);
   } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Username already exists' });
     res.status(500).json({ error: err.message });
   }
 });

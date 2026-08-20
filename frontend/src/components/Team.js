@@ -3,7 +3,7 @@ import axios from 'axios';
 import { API_BASE } from '../App';
 
 const EMPTY_ADMIN = { id: null, username: '', password: '', displayName: '' };
-const EMPTY_STORE = { id: null, name: '', adminId: '' };
+const EMPTY_STORE = { id: null, name: '', adminId: '', username: '', password: '', displayName: '' };
 const EMPTY_STAFF = { id: null, username: '', password: '', displayName: '', storeId: '' };
 
 function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
@@ -128,16 +128,28 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
 
   // ---------- Stores ----------
   const openAddStore = () => { setStoreForm(EMPTY_STORE); setShowStoreModal(true); };
-  const openEditStore = (s) => { setStoreForm({ id: s.id, name: s.name, adminId: s.admin_id }); setShowStoreModal(true); };
+  const openEditStore = (s) => {
+    setStoreForm({
+      id: s.id, name: s.name, adminId: s.admin_id,
+      username: s.store_username || '', password: '', displayName: s.store_display_name || ''
+    });
+    setShowStoreModal(true);
+  };
 
   const saveStore = async () => {
     if (!storeForm.name || !storeForm.adminId) return;
     try {
+      const payload = {
+        name: storeForm.name, adminId: storeForm.adminId,
+        username: storeForm.username || undefined,
+        password: storeForm.password || undefined,
+        displayName: storeForm.displayName || undefined
+      };
       if (storeForm.id) {
-        await axios.put(`${API_BASE}/stores/${storeForm.id}`, { name: storeForm.name, adminId: storeForm.adminId });
+        await axios.put(`${API_BASE}/stores/${storeForm.id}`, payload);
         setSuccessMsg('Store updated');
       } else {
-        await axios.post(`${API_BASE}/stores`, { name: storeForm.name, adminId: storeForm.adminId });
+        await axios.post(`${API_BASE}/stores`, payload);
         setSuccessMsg('Store added');
       }
       setShowStoreModal(false);
@@ -326,6 +338,18 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
                 {admins.map((a) => <option key={a.id} value={a.id}>{a.display_name}</option>)}
               </select>
             </div>
+            <p style={{ fontSize: 11, opacity: 0.6, margin: '4px 0 12px' }}>
+              Store login account {storeForm.id ? '(leave blank to keep as-is)' : '(optional)'}
+            </p>
+            <div className="form-group"><input placeholder="Username" value={storeForm.username} onChange={(e) => setStoreForm({ ...storeForm, username: e.target.value })} /></div>
+            <div className="form-group">
+              <input
+                placeholder={storeForm.id ? 'New Password (leave blank to keep)' : 'Password'}
+                value={storeForm.password}
+                onChange={(e) => setStoreForm({ ...storeForm, password: e.target.value })}
+              />
+            </div>
+            <div className="form-group"><input placeholder="Display Name" value={storeForm.displayName} onChange={(e) => setStoreForm({ ...storeForm, displayName: e.target.value })} /></div>
             <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={submitStoreForm}>{storeForm.id ? 'Save Changes' : 'Add Store'}</button>
           </div>
         </div>
