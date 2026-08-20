@@ -18,11 +18,23 @@ function buildPoolConfig() {
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
     database: url.pathname.replace(/^\//, '') || 'postgres',
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    // Each Vercel serverless invocation can spin up its own Pool instance.
+    // pg's default max (10) per instance blows past Supabase's session-pooler
+    // cap (15 total) the moment more than one or two invocations overlap.
+    // Keep each instance's footprint tiny and release idle connections fast
+    // so they don't sit there starving other concurrent invocations.
+    max: 1,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 10000
   };
 }
 
 const pool = new Pool(buildPoolConfig());
+
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle Postgres client:', err.message);
+});
 
 const DEFAULT_CATEGORIES = [
   'Cases', 'Chargers', 'Cables', 'Screen Protectors', 'Power Banks', 'Earphones',
