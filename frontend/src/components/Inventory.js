@@ -4,11 +4,12 @@ import { API_BASE } from '../App';
 
 const EMPTY_FORM = { name: '', category: '', storeId: '', price: 0, cost: 0, stock: 0 };
 
-function Inventory({ authUser, stores, categories, search, setError, setSuccessMsg, refresh, refreshTick }) {
+function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refresh, refreshTick }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [storeFilter, setStoreFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('All');
+  const [search, setSearch] = useState('');
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -133,7 +134,7 @@ function Inventory({ authUser, stores, categories, search, setError, setSuccessM
       <div className="filter-row">
         <div className="search-box">
           <span>🔍</span>
-          <input placeholder="Filter by store/category below" disabled value="" />
+          <input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <select className="pill-select" value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}>
           <option value="All">{isHost ? 'All Stores' : 'Own Stores'}</option>

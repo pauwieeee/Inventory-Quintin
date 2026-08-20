@@ -29,7 +29,6 @@ function App() {
 
   const [page, setPage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [search, setSearch] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -117,7 +116,7 @@ function App() {
   const navItems = isHost ? [...NAV_ITEMS, { key: 'team', label: 'Team', icon: '👥' }] : NAV_ITEMS;
 
   const sharedProps = {
-    authUser, stores, categories, search,
+    authUser, stores, categories,
     setError, setSuccessMsg, refresh, refreshTick
   };
 
@@ -127,10 +126,6 @@ function App() {
         <button className="icon-btn" onClick={() => setSidebarOpen((s) => !s)} aria-label="Open menu">☰</button>
         <div className="topbar-logo">AH</div>
         <div className="topbar-brand">AccessoryHub</div>
-        <div className="topbar-search">
-          <span>🔍</span>
-          <input placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
         <div className="topbar-user">
           <span>{authUser.displayName}</span>
           <span className="role-badge">{authUser.role.toUpperCase()}</span>
