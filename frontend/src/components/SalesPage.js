@@ -47,7 +47,10 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
   const filteredProducts = useMemo(() => {
     let list = products;
     if (sale.category !== 'All') list = list.filter((p) => p.category === sale.category);
-    if (sale.search) list = list.filter((p) => p.name.toLowerCase().includes(sale.search.toLowerCase()));
+    if (sale.search) {
+      const q = sale.search.toLowerCase();
+      list = list.filter((p) => p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q)));
+    }
     return list;
   }, [products, sale.category, sale.search]);
 
@@ -155,7 +158,7 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
 
                 <div className="form-group">
                   <label>Search Product</label>
-                  <input value={sale.search} onChange={(e) => setSale({ ...sale, search: e.target.value })} placeholder="Search..." />
+                  <input value={sale.search} onChange={(e) => setSale({ ...sale, search: e.target.value })} placeholder="Search by name or SKU..." />
                 </div>
 
                 <div className="form-group">
@@ -186,7 +189,7 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
                         onClick={() => setSale({ ...sale, productId: p.id })}
                       >
                         <span>
-                          <div>{p.name}</div>
+                          <div>{p.name}{p.sku ? ` (${p.sku})` : ''}</div>
                           <div style={{ fontSize: 10, opacity: 0.7 }}>{p.category} • Stock {p.current_quantity} • {peso(p.unit_price)}</div>
                         </span>
                         <b>{peso(p.unit_price)}</b>

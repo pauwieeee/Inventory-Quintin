@@ -249,7 +249,7 @@ app.get('/api/products', async (req, res) => {
     }
     if (search) {
       params.push(`%${search}%`);
-      sql += ` AND p.name ILIKE $${params.length}`;
+      sql += ` AND (p.name ILIKE $${params.length} OR p.sku ILIKE $${params.length})`;
     }
     sql += ' ORDER BY p.name';
     const result = await pool.query(sql, params);
