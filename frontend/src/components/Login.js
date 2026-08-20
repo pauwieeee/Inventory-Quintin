@@ -2,15 +2,10 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { API_BASE } from '../App';
 
+// Only Host gets a quick-login shortcut on this public page — showing
+// Admin/Store/Staff credentials here would leak them to anyone who visits.
 const QUICK_ACCOUNTS = [
-  { username: 'host', password: 'host123', role: 'host', displayName: 'Host Superuser' },
-  { username: 'cellcare', password: 'cellcare123', role: 'admin', displayName: 'Cellcare' },
-  { username: 'gaminggrounds', password: 'gaminggrounds123', role: 'admin', displayName: 'Gaming Grounds' },
-  { username: 'store', password: 'store123', role: 'store', displayName: 'Cellcare Store' },
-  { username: 'store2', password: 'store2123', role: 'store', displayName: 'Gaming Grounds Store' },
-  { username: 'store3', password: 'store3123', role: 'store', displayName: 'Gamens and Gadgets Store' },
-  { username: 'cc-cindy', password: 'cc-cindy', role: 'staff', displayName: 'Cindy' },
-  { username: 'gg-jc', password: 'gg-jc', role: 'staff', displayName: 'JC' }
+  { username: 'host', password: 'host123', role: 'host', displayName: 'Host Superuser' }
 ];
 
 function Login({ onLogin }) {
