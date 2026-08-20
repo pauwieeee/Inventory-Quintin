@@ -176,12 +176,38 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
     }
   };
 
+  const totalQty = sales.reduce((sum, s) => sum + Number(s.quantity_sold), 0);
+  const totalAmount = sales.reduce((sum, s) => sum + Number(s.total), 0);
+  const totalCash = sales.reduce((sum, s) => sum + Number(s.cash_amount), 0);
+  const totalCard = sales.reduce((sum, s) => sum + Number(s.card_amount), 0);
+
   return (
     <div>
       <div className="page-head">
         <div className="page-title">Sales</div>
         <button className="btn btn-black" onClick={openModal}>+ Add Sale</button>
       </div>
+
+      {!loading && sales.length > 0 && (
+        <div className="stats-grid cols-4" style={{ marginBottom: 16 }}>
+          <div className="stat-card dark">
+            <div className="stat-label">Transactions</div>
+            <div className="stat-value">{sales.length}</div>
+          </div>
+          <div className="stat-card dark">
+            <div className="stat-label">Total Quantity</div>
+            <div className="stat-value">{totalQty}</div>
+          </div>
+          <div className="stat-card dark">
+            <div className="stat-label">Total Sales</div>
+            <div className="stat-value">{peso(totalAmount)}</div>
+          </div>
+          <div className="stat-card dark">
+            <div className="stat-label">Cash / Card</div>
+            <div className="stat-value" style={{ fontSize: 15 }}>{peso(totalCash)} / {peso(totalCard)}</div>
+          </div>
+        </div>
+      )}
 
       <div className="panel">
         {loading ? (
@@ -226,6 +252,16 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
                   ))
                 )}
               </tbody>
+              {sales.length > 0 && (
+                <tfoot>
+                  <tr style={{ background: '#fafafa', fontWeight: 700 }}>
+                    <td colSpan="3">Total</td>
+                    <td className="text-right">{totalQty}</td>
+                    <td className="text-right">{peso(totalAmount)}</td>
+                    <td colSpan={isHost ? 3 : 2}></td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         )}
