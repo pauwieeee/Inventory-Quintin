@@ -19,6 +19,38 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [staffForm, setStaffForm] = useState(EMPTY_STAFF);
 
+  // Password re-confirmation gate for any edit or delete action.
+  const [pendingAction, setPendingAction] = useState(null); // { label, run }
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [confirmError, setConfirmError] = useState('');
+  const [verifying, setVerifying] = useState(false);
+
+  const requestConfirm = (label, run) => {
+    setConfirmPassword('');
+    setConfirmError('');
+    setPendingAction({ label, run });
+  };
+
+  const submitConfirm = async () => {
+    if (!confirmPassword) {
+      setConfirmError('Enter your password');
+      return;
+    }
+    setVerifying(true);
+    setConfirmError('');
+    try {
+      await axios.post(`${API_BASE}/auth/verify-password`, { password: confirmPassword });
+      const action = pendingAction;
+      setPendingAction(null);
+      setConfirmPassword('');
+      await action.run();
+    } catch (err) {
+      setConfirmError(err.response?.data?.error || 'Incorrect password');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const load = () => {
     setLoading(true);
     axios.get(`${API_BASE}/team/users`)
@@ -62,8 +94,12 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
     }
   };
 
+  const submitAdminForm = () => {
+    if (adminForm.id) requestConfirm(`Save changes to "${adminForm.displayName}"`, saveAdmin);
+    else saveAdmin();
+  };
+
   const deleteAdmin = async (a) => {
-    if (!window.confirm(`Delete admin "${a.display_name}"?`)) return;
     try {
       await axios.delete(`${API_BASE}/team/admins/${a.id}`);
       setSuccessMsg('Admin deleted');
@@ -111,8 +147,12 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
     }
   };
 
+  const submitStoreForm = () => {
+    if (storeForm.id) requestConfirm(`Save changes to "${storeForm.name}"`, saveStore);
+    else saveStore();
+  };
+
   const deleteStore = async (s) => {
-    if (!window.confirm(`Delete store "${s.name}"?`)) return;
     try {
       await axios.delete(`${API_BASE}/stores/${s.id}`);
       setSuccessMsg('Store deleted');
@@ -168,8 +208,12 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
     }
   };
 
+  const submitStaffForm = () => {
+    if (staffForm.id) requestConfirm(`Save changes to "${staffForm.displayName}"`, saveStaff);
+    else saveStaff();
+  };
+
   const deleteStaff = async (s) => {
-    if (!window.confirm(`Delete staff account "${s.display_name}"?`)) return;
     try {
       await axios.delete(`${API_BASE}/team/staff/${s.id}`);
       setSuccessMsg('Staff account deleted');
@@ -202,7 +246,7 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <span className="badge badge-black">{stores.filter((s) => s.admin_id === a.id).length} stores</span>
                 <button className="btn btn-outline btn-sm" onClick={() => openEditAdmin(a)}>Edit</button>
-                <button className="btn btn-outline btn-sm" onClick={() => deleteAdmin(a)}>🗑</button>
+                <button className="btn btn-outline btn-sm" onClick={() => requestConfirm(`Delete admin "${a.display_name}"`, () => deleteAdmin(a))}>🗑</button>
               </div>
             </div>
           ))}
@@ -221,7 +265,7 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn btn-outline btn-sm" onClick={() => openEditStore(s)}>Edit</button>
-                <button className="btn btn-outline btn-sm" onClick={() => deleteStore(s)}>🗑</button>
+                <button className="btn btn-outline btn-sm" onClick={() => requestConfirm(`Delete store "${s.name}"`, () => deleteStore(s))}>🗑</button>
               </div>
             </div>
           ))}
@@ -246,7 +290,7 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
                     <td className="text-right">
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                         <button className="btn btn-outline btn-sm" onClick={() => openEditStaff(s)}>Edit</button>
-                        <button className="btn btn-outline btn-sm" onClick={() => deleteStaff(s)}>🗑</button>
+                        <button className="btn btn-outline btn-sm" onClick={() => requestConfirm(`Delete staff account "${s.display_name}"`, () => deleteStaff(s))}>🗑</button>
                       </div>
                     </td>
                   </tr>
@@ -268,7 +312,7 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
               <input placeholder={adminForm.id ? 'New Password (leave blank to keep)' : 'Password'} value={adminForm.password} onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })} />
             </div>
             <div className="form-group"><input placeholder="Display Name" value={adminForm.displayName} onChange={(e) => setAdminForm({ ...adminForm, displayName: e.target.value })} /></div>
-            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={saveAdmin}>{adminForm.id ? 'Save Changes' : 'Add'}</button>
+            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={submitAdminForm}>{adminForm.id ? 'Save Changes' : 'Add'}</button>
           </div>
         </div>
       )}
@@ -284,7 +328,7 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
                 {admins.map((a) => <option key={a.id} value={a.id}>{a.display_name}</option>)}
               </select>
             </div>
-            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={saveStore}>{storeForm.id ? 'Save Changes' : 'Add Store'}</button>
+            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={submitStoreForm}>{storeForm.id ? 'Save Changes' : 'Add Store'}</button>
           </div>
         </div>
       )}
@@ -306,7 +350,33 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
                 {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
-            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={saveStaff}>{staffForm.id ? 'Save Changes' : 'Add Staff'}</button>
+            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={submitStaffForm}>{staffForm.id ? 'Save Changes' : 'Add Staff'}</button>
+          </div>
+        </div>
+      )}
+
+      {pendingAction && (
+        <div className="modal-overlay" onClick={() => setPendingAction(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title" style={{ marginBottom: 4 }}>🔒 Confirm Your Password</div>
+            <p style={{ fontSize: 12, opacity: 0.7, marginBottom: 16 }}>{pendingAction.label}</p>
+            <div className="form-group">
+              <input
+                type="password"
+                placeholder="Your Host password"
+                value={confirmPassword}
+                autoFocus
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && submitConfirm()}
+              />
+            </div>
+            {confirmError && <div className="login-error" style={{ marginBottom: 12 }}>{confirmError}</div>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setPendingAction(null)}>Cancel</button>
+              <button className="btn btn-black" style={{ flex: 1, justifyContent: 'center' }} onClick={submitConfirm} disabled={verifying}>
+                {verifying ? 'Verifying...' : 'Confirm'}
+              </button>
+            </div>
           </div>
         </div>
       )}
