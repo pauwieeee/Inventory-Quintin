@@ -121,6 +121,45 @@ app.post('/api/stores', requireRole('host'), async (req, res) => {
   }
 });
 
+app.put('/api/stores/:id', requireRole('host'), async (req, res) => {
+  const { name, adminId } = req.body;
+  try {
+    const existing = await pool.query('SELECT * FROM stores WHERE id = $1', [req.params.id]);
+    const s = existing.rows[0];
+    if (!s) return res.status(404).json({ error: 'Store not found' });
+    const result = await pool.query(
+      'UPDATE stores SET name = $1, admin_id = $2 WHERE id = $3 RETURNING *',
+      [name ?? s.name, adminId ?? s.admin_id, req.params.id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/stores/:id', requireRole('host'), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const existing = await pool.query('SELECT * FROM stores WHERE id = $1', [id]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Store not found' });
+
+    const productCount = await pool.query('SELECT COUNT(*) FROM products WHERE store_id = $1', [id]);
+    if (Number(productCount.rows[0].count) > 0) {
+      return res.status(400).json({ error: 'Cannot delete a store that still has products. Remove its products first.' });
+    }
+    const staffCount = await pool.query("SELECT COUNT(*) FROM users WHERE store_id = $1", [id]);
+    if (Number(staffCount.rows[0].count) > 0) {
+      return res.status(400).json({ error: 'Cannot delete a store that still has staff/store accounts. Remove them first.' });
+    }
+
+    await pool.query('DELETE FROM staff_names WHERE store_id = $1', [id]);
+    await pool.query('DELETE FROM stores WHERE id = $1', [id]);
+    res.json({ message: 'Store deleted successfully', id: Number(id) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---------- Categories ----------
 
 app.get('/api/categories', async (req, res) => {
@@ -547,6 +586,72 @@ app.post('/api/team/staff', requireRole('host'), async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'Username already exists' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/team/admins/:id', requireRole('host'), async (req, res) => {
+  const { displayName, password } = req.body;
+  try {
+    const existing = await pool.query("SELECT * FROM users WHERE id = $1 AND role = 'admin'", [req.params.id]);
+    const u = existing.rows[0];
+    if (!u) return res.status(404).json({ error: 'Admin not found' });
+
+    const password_hash = password ? await bcrypt.hash(password, 10) : u.password_hash;
+    const result = await pool.query(
+      `UPDATE users SET display_name = $1, password_hash = $2 WHERE id = $3 RETURNING id, username, display_name, role`,
+      [displayName ?? u.display_name, password_hash, req.params.id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/team/admins/:id', requireRole('host'), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const existing = await pool.query("SELECT * FROM users WHERE id = $1 AND role = 'admin'", [id]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Admin not found' });
+
+    const storeCount = await pool.query('SELECT COUNT(*) FROM stores WHERE admin_id = $1', [id]);
+    if (Number(storeCount.rows[0].count) > 0) {
+      return res.status(400).json({ error: 'Cannot delete an admin who still owns stores. Delete or reassign their stores first.' });
+    }
+
+    await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    res.json({ message: 'Admin deleted successfully', id: Number(id) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/team/staff/:id', requireRole('host'), async (req, res) => {
+  const { displayName, password, storeId } = req.body;
+  try {
+    const existing = await pool.query("SELECT * FROM users WHERE id = $1 AND role IN ('staff','store')", [req.params.id]);
+    const u = existing.rows[0];
+    if (!u) return res.status(404).json({ error: 'Staff account not found' });
+
+    const password_hash = password ? await bcrypt.hash(password, 10) : u.password_hash;
+    const result = await pool.query(
+      `UPDATE users SET display_name = $1, password_hash = $2, store_id = $3 WHERE id = $4 RETURNING id, username, display_name, role, store_id`,
+      [displayName ?? u.display_name, password_hash, storeId ?? u.store_id, req.params.id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/team/staff/:id', requireRole('host'), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const existing = await pool.query("SELECT * FROM users WHERE id = $1 AND role IN ('staff','store')", [id]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Staff account not found' });
+    await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    res.json({ message: 'Staff account deleted successfully', id: Number(id) });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

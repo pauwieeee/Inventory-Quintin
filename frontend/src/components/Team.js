@@ -2,18 +2,22 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_BASE } from '../App';
 
+const EMPTY_ADMIN = { id: null, username: '', password: '', displayName: '' };
+const EMPTY_STORE = { id: null, name: '', adminId: '' };
+const EMPTY_STAFF = { id: null, username: '', password: '', displayName: '', storeId: '' };
+
 function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [showAdminModal, setShowAdminModal] = useState(false);
-  const [adminForm, setAdminForm] = useState({ username: '', password: '', displayName: '' });
+  const [adminForm, setAdminForm] = useState(EMPTY_ADMIN);
 
   const [showStoreModal, setShowStoreModal] = useState(false);
-  const [storeForm, setStoreForm] = useState({ name: '', adminId: '' });
+  const [storeForm, setStoreForm] = useState(EMPTY_STORE);
 
   const [showStaffModal, setShowStaffModal] = useState(false);
-  const [staffForm, setStaffForm] = useState({ username: '', password: '', displayName: '', storeId: '' });
+  const [staffForm, setStaffForm] = useState(EMPTY_STAFF);
 
   const load = () => {
     setLoading(true);
@@ -26,44 +30,119 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
   useEffect(load, [refreshTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const admins = users.filter((u) => u.role === 'admin');
-  const staff = users.filter((u) => u.role === 'staff');
+  const staff = users.filter((u) => u.role === 'staff' || u.role === 'store');
 
-  const addAdmin = async () => {
-    if (!adminForm.username || !adminForm.password || !adminForm.displayName) return;
-    try {
-      await axios.post(`${API_BASE}/team/admins`, adminForm);
-      setSuccessMsg('Admin added');
-      setShowAdminModal(false);
-      setAdminForm({ username: '', password: '', displayName: '' });
-      load();
-    } catch (err) {
-      setError('Failed to add admin: ' + (err.response?.data?.error || err.message));
+  // ---------- Admins ----------
+  const openAddAdmin = () => { setAdminForm(EMPTY_ADMIN); setShowAdminModal(true); };
+  const openEditAdmin = (a) => { setAdminForm({ id: a.id, username: a.username, password: '', displayName: a.display_name }); setShowAdminModal(true); };
+
+  const saveAdmin = async () => {
+    if (adminForm.id) {
+      if (!adminForm.displayName) return;
+      try {
+        await axios.put(`${API_BASE}/team/admins/${adminForm.id}`, {
+          displayName: adminForm.displayName, password: adminForm.password || undefined
+        });
+        setSuccessMsg('Admin updated');
+        setShowAdminModal(false);
+        load();
+      } catch (err) {
+        setError('Failed to update admin: ' + (err.response?.data?.error || err.message));
+      }
+    } else {
+      if (!adminForm.username || !adminForm.password || !adminForm.displayName) return;
+      try {
+        await axios.post(`${API_BASE}/team/admins`, adminForm);
+        setSuccessMsg('Admin added');
+        setShowAdminModal(false);
+        load();
+      } catch (err) {
+        setError('Failed to add admin: ' + (err.response?.data?.error || err.message));
+      }
     }
   };
 
-  const addStore = async () => {
+  const deleteAdmin = async (a) => {
+    if (!window.confirm(`Delete admin "${a.display_name}"?`)) return;
+    try {
+      await axios.delete(`${API_BASE}/team/admins/${a.id}`);
+      setSuccessMsg('Admin deleted');
+      load();
+    } catch (err) {
+      setError('Failed to delete admin: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  // ---------- Stores ----------
+  const openAddStore = () => { setStoreForm(EMPTY_STORE); setShowStoreModal(true); };
+  const openEditStore = (s) => { setStoreForm({ id: s.id, name: s.name, adminId: s.admin_id }); setShowStoreModal(true); };
+
+  const saveStore = async () => {
     if (!storeForm.name || !storeForm.adminId) return;
     try {
-      await axios.post(`${API_BASE}/stores`, storeForm);
-      setSuccessMsg('Store added');
+      if (storeForm.id) {
+        await axios.put(`${API_BASE}/stores/${storeForm.id}`, { name: storeForm.name, adminId: storeForm.adminId });
+        setSuccessMsg('Store updated');
+      } else {
+        await axios.post(`${API_BASE}/stores`, { name: storeForm.name, adminId: storeForm.adminId });
+        setSuccessMsg('Store added');
+      }
       setShowStoreModal(false);
-      setStoreForm({ name: '', adminId: '' });
       refresh();
     } catch (err) {
-      setError('Failed to add store: ' + (err.response?.data?.error || err.message));
+      setError('Failed to save store: ' + (err.response?.data?.error || err.message));
     }
   };
 
-  const addStaff = async () => {
-    if (!staffForm.username || !staffForm.password || !staffForm.displayName || !staffForm.storeId) return;
+  const deleteStore = async (s) => {
+    if (!window.confirm(`Delete store "${s.name}"?`)) return;
     try {
-      await axios.post(`${API_BASE}/team/staff`, staffForm);
-      setSuccessMsg('Staff added');
-      setShowStaffModal(false);
-      setStaffForm({ username: '', password: '', displayName: '', storeId: '' });
+      await axios.delete(`${API_BASE}/stores/${s.id}`);
+      setSuccessMsg('Store deleted');
+      refresh();
+    } catch (err) {
+      setError('Failed to delete store: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  // ---------- Staff ----------
+  const openAddStaff = () => { setStaffForm(EMPTY_STAFF); setShowStaffModal(true); };
+  const openEditStaff = (s) => { setStaffForm({ id: s.id, username: s.username, password: '', displayName: s.display_name, storeId: s.store_id }); setShowStaffModal(true); };
+
+  const saveStaff = async () => {
+    if (staffForm.id) {
+      if (!staffForm.displayName || !staffForm.storeId) return;
+      try {
+        await axios.put(`${API_BASE}/team/staff/${staffForm.id}`, {
+          displayName: staffForm.displayName, password: staffForm.password || undefined, storeId: staffForm.storeId
+        });
+        setSuccessMsg('Staff updated');
+        setShowStaffModal(false);
+        load();
+      } catch (err) {
+        setError('Failed to update staff: ' + (err.response?.data?.error || err.message));
+      }
+    } else {
+      if (!staffForm.username || !staffForm.password || !staffForm.displayName || !staffForm.storeId) return;
+      try {
+        await axios.post(`${API_BASE}/team/staff`, staffForm);
+        setSuccessMsg('Staff added');
+        setShowStaffModal(false);
+        load();
+      } catch (err) {
+        setError('Failed to add staff: ' + (err.response?.data?.error || err.message));
+      }
+    }
+  };
+
+  const deleteStaff = async (s) => {
+    if (!window.confirm(`Delete staff account "${s.display_name}"?`)) return;
+    try {
+      await axios.delete(`${API_BASE}/team/staff/${s.id}`);
+      setSuccessMsg('Staff account deleted');
       load();
     } catch (err) {
-      setError('Failed to add staff: ' + (err.response?.data?.error || err.message));
+      setError('Failed to delete staff: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -79,15 +158,19 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
         <div className="panel">
           <div className="page-head" style={{ marginBottom: 12 }}>
             <div className="panel-title" style={{ marginBottom: 0 }}>Admins</div>
-            <button className="btn btn-black btn-sm" onClick={() => setShowAdminModal(true)}>+ Add Admin</button>
+            <button className="btn btn-black btn-sm" onClick={openAddAdmin}>+ Add Admin</button>
           </div>
           {admins.map((a) => (
-            <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', padding: 10, borderRadius: 10, background: '#fafafa', border: '1px solid rgba(0,0,0,0.1)', marginBottom: 6 }}>
+            <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 10, borderRadius: 10, background: '#fafafa', border: '1px solid rgba(0,0,0,0.1)', marginBottom: 6, gap: 8 }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 12 }}>{a.display_name}</div>
                 <div style={{ fontSize: 11, opacity: 0.6 }}>{a.username}</div>
               </div>
-              <span className="badge badge-black">{stores.filter((s) => s.admin_id === a.id).length} stores</span>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <span className="badge badge-black">{stores.filter((s) => s.admin_id === a.id).length} stores</span>
+                <button className="btn btn-outline btn-sm" onClick={() => openEditAdmin(a)}>Edit</button>
+                <button className="btn btn-outline btn-sm" onClick={() => deleteAdmin(a)}>🗑</button>
+              </div>
             </div>
           ))}
         </div>
@@ -95,13 +178,17 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
         <div className="panel">
           <div className="page-head" style={{ marginBottom: 12 }}>
             <div className="panel-title" style={{ marginBottom: 0 }}>Stores</div>
-            <button className="btn btn-black btn-sm" onClick={() => setShowStoreModal(true)}>+ Add Store</button>
+            <button className="btn btn-black btn-sm" onClick={openAddStore}>+ Add Store</button>
           </div>
           {stores.map((s) => (
-            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: 10, borderRadius: 10, background: '#fafafa', border: '1px solid rgba(0,0,0,0.1)', marginBottom: 6 }}>
+            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 10, borderRadius: 10, background: '#fafafa', border: '1px solid rgba(0,0,0,0.1)', marginBottom: 6, gap: 8 }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 12 }}>{s.name}</div>
                 <div style={{ fontSize: 11, opacity: 0.6 }}>#{s.id} • Admin: {s.admin_name}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="btn btn-outline btn-sm" onClick={() => openEditStore(s)}>Edit</button>
+                <button className="btn btn-outline btn-sm" onClick={() => deleteStore(s)}>🗑</button>
               </div>
             </div>
           ))}
@@ -110,12 +197,12 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
         <div className="panel">
           <div className="page-head" style={{ marginBottom: 12 }}>
             <div className="panel-title" style={{ marginBottom: 0 }}>Staff Accounts</div>
-            <button className="btn btn-black btn-sm" onClick={() => setShowStaffModal(true)}>+ Add Staff</button>
+            <button className="btn btn-black btn-sm" onClick={openAddStaff}>+ Add Staff</button>
           </div>
           <div className="table-wrapper">
             <table>
               <thead>
-                <tr><th>Username</th><th>Display</th><th>Store</th></tr>
+                <tr><th>Username</th><th>Display</th><th>Store</th><th className="text-right">Actions</th></tr>
               </thead>
               <tbody>
                 {staff.map((s) => (
@@ -123,6 +210,12 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
                     <td>{s.username}</td>
                     <td>{s.display_name}</td>
                     <td>{stores.find((st) => st.id === s.store_id)?.name || s.store_id}</td>
+                    <td className="text-right">
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <button className="btn btn-outline btn-sm" onClick={() => openEditStaff(s)}>Edit</button>
+                        <button className="btn btn-outline btn-sm" onClick={() => deleteStaff(s)}>🗑</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -134,11 +227,15 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
       {showAdminModal && (
         <div className="modal-overlay" onClick={() => setShowAdminModal(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title" style={{ marginBottom: 12 }}>Add Admin</div>
-            <div className="form-group"><input placeholder="Username" value={adminForm.username} onChange={(e) => setAdminForm({ ...adminForm, username: e.target.value })} /></div>
-            <div className="form-group"><input placeholder="Password" value={adminForm.password} onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })} /></div>
+            <div className="modal-title" style={{ marginBottom: 12 }}>{adminForm.id ? 'Edit Admin' : 'Add Admin'}</div>
+            {!adminForm.id && (
+              <div className="form-group"><input placeholder="Username" value={adminForm.username} onChange={(e) => setAdminForm({ ...adminForm, username: e.target.value })} /></div>
+            )}
+            <div className="form-group">
+              <input placeholder={adminForm.id ? 'New Password (leave blank to keep)' : 'Password'} value={adminForm.password} onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })} />
+            </div>
             <div className="form-group"><input placeholder="Display Name" value={adminForm.displayName} onChange={(e) => setAdminForm({ ...adminForm, displayName: e.target.value })} /></div>
-            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={addAdmin}>Add</button>
+            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={saveAdmin}>{adminForm.id ? 'Save Changes' : 'Add'}</button>
           </div>
         </div>
       )}
@@ -146,7 +243,7 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
       {showStoreModal && (
         <div className="modal-overlay" onClick={() => setShowStoreModal(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title" style={{ marginBottom: 12 }}>Add Store</div>
+            <div className="modal-title" style={{ marginBottom: 12 }}>{storeForm.id ? 'Edit Store' : 'Add Store'}</div>
             <div className="form-group"><input placeholder="Store Name" value={storeForm.name} onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value })} /></div>
             <div className="form-group">
               <select value={storeForm.adminId} onChange={(e) => setStoreForm({ ...storeForm, adminId: e.target.value })}>
@@ -154,7 +251,7 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
                 {admins.map((a) => <option key={a.id} value={a.id}>{a.display_name}</option>)}
               </select>
             </div>
-            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={addStore}>Add Store</button>
+            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={saveStore}>{storeForm.id ? 'Save Changes' : 'Add Store'}</button>
           </div>
         </div>
       )}
@@ -162,9 +259,13 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
       {showStaffModal && (
         <div className="modal-overlay" onClick={() => setShowStaffModal(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title" style={{ marginBottom: 12 }}>Add Staff Account</div>
-            <div className="form-group"><input placeholder="Username" value={staffForm.username} onChange={(e) => setStaffForm({ ...staffForm, username: e.target.value })} /></div>
-            <div className="form-group"><input placeholder="Password" value={staffForm.password} onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })} /></div>
+            <div className="modal-title" style={{ marginBottom: 12 }}>{staffForm.id ? 'Edit Staff Account' : 'Add Staff Account'}</div>
+            {!staffForm.id && (
+              <div className="form-group"><input placeholder="Username" value={staffForm.username} onChange={(e) => setStaffForm({ ...staffForm, username: e.target.value })} /></div>
+            )}
+            <div className="form-group">
+              <input placeholder={staffForm.id ? 'New Password (leave blank to keep)' : 'Password'} value={staffForm.password} onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })} />
+            </div>
             <div className="form-group"><input placeholder="Display Name" value={staffForm.displayName} onChange={(e) => setStaffForm({ ...staffForm, displayName: e.target.value })} /></div>
             <div className="form-group">
               <select value={staffForm.storeId} onChange={(e) => setStaffForm({ ...staffForm, storeId: e.target.value })}>
@@ -172,7 +273,7 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
                 {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
-            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={addStaff}>Add Staff</button>
+            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={saveStaff}>{staffForm.id ? 'Save Changes' : 'Add Staff'}</button>
           </div>
         </div>
       )}
