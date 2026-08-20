@@ -25,6 +25,7 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
   const [staffNames, setStaffNames] = useState([]);
 
   const isScoped = authUser.role === 'store' || authUser.role === 'staff';
+  const isHost = authUser.role === 'host';
 
   const loadSales = () => {
     setLoading(true);
@@ -82,7 +83,7 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
         discountType: sale.discountType, discountValue: Number(sale.discountValue),
         paymentMethod: sale.paymentMethod, cashAmount: Number(sale.cashAmount), cardAmount: Number(sale.cardAmount),
         cardType: sale.cardType, last4: sale.last4, ref: sale.ref, staffName: sale.staffName, remarks: sale.remarks,
-        saleDate: sale.saleDate || undefined
+        saleDate: isHost ? (sale.saleDate || undefined) : undefined
       });
       setSuccessMsg('Sale recorded — inventory updated');
       setShowModal(false);
@@ -150,15 +151,24 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
               <button className="icon-btn" onClick={() => setShowModal(false)}>✕</button>
             </div>
 
-            <div className="form-group" style={{ maxWidth: 220 }}>
-              <label>📅 Sale Date</label>
-              <input
-                type="date"
-                value={sale.saleDate}
-                max={today()}
-                onChange={(e) => setSale({ ...sale, saleDate: e.target.value })}
-              />
-            </div>
+            {isHost ? (
+              <div className="form-group" style={{ maxWidth: 220 }}>
+                <label>📅 Sale Date</label>
+                <input
+                  type="date"
+                  value={sale.saleDate}
+                  max={today()}
+                  onChange={(e) => setSale({ ...sale, saleDate: e.target.value })}
+                />
+              </div>
+            ) : (
+              <div className="form-group" style={{ maxWidth: 320 }}>
+                <label>📅 Sale Date</label>
+                <div style={{ height: 40, display: 'flex', alignItems: 'center', paddingLeft: 14, borderRadius: 9999, background: '#f5f5f5', fontSize: 12 }}>
+                  Today only — ask the Host to log a backdated sale
+                </div>
+              </div>
+            )}
 
             <div className="two-col-modal">
               <div>

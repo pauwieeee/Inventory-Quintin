@@ -387,6 +387,9 @@ app.post('/api/sales', async (req, res) => {
 
   let resolvedSaleDate = null;
   if (saleDate) {
+    if (req.user.role !== 'host') {
+      return res.status(403).json({ error: 'Only the Host can backdate a sale. Ask the host to log this sale, or contact them for permission.' });
+    }
     resolvedSaleDate = new Date(saleDate);
     if (isNaN(resolvedSaleDate.getTime())) {
       return res.status(400).json({ error: 'Invalid saleDate' });
