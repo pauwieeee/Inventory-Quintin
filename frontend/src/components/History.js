@@ -9,20 +9,36 @@ function peso(n) {
 function History({ setError, refreshTick }) {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
 
   useEffect(() => {
     setLoading(true);
-    axios.get(`${API_BASE}/sales`)
+    const params = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    axios.get(`${API_BASE}/sales`, { params })
       .then((r) => setSales(r.data))
       .catch((err) => setError('Failed to load history: ' + (err.response?.data?.error || err.message)))
       .finally(() => setLoading(false));
-  }, [refreshTick, setError]);
+  }, [refreshTick, from, to, setError]);
 
   return (
     <div>
       <div className="page-head">
         <div className="page-title">History • Sales Log</div>
       </div>
+
+      <div className="date-filter-row">
+        <label>From</label>
+        <input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
+        <label>To</label>
+        <input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
+        {(from || to) && (
+          <button className="btn btn-outline btn-sm" onClick={() => { setFrom(''); setTo(''); }}>Clear</button>
+        )}
+      </div>
+
       <div className="panel">
         {loading ? (
           <div className="spinner-container"><div className="spinner"></div></div>
@@ -42,7 +58,7 @@ function History({ setError, refreshTick }) {
               </thead>
               <tbody>
                 {sales.length === 0 ? (
-                  <tr><td colSpan="7" className="empty-state">No history yet.</td></tr>
+                  <tr><td colSpan="7" className="empty-state">No history for this range.</td></tr>
                 ) : (
                   sales.map((s) => (
                     <tr key={s.id}>

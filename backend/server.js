@@ -456,7 +456,7 @@ app.get('/api/sales', async (req, res) => {
   try {
     const ids = await getAccessibleStoreIds(req.user);
     if (ids.length === 0) return res.json([]);
-    const { storeId } = req.query;
+    const { storeId, from, to } = req.query;
     let sql = `
       SELECT sa.*, p.name AS product_name, s.name AS store_name
       FROM sales sa
@@ -468,6 +468,14 @@ app.get('/api/sales', async (req, res) => {
     if (storeId && storeId !== 'All') {
       params.push(storeId);
       sql += ` AND sa.store_id = $${params.length}`;
+    }
+    if (from) {
+      params.push(from);
+      sql += ` AND sa.sale_date::date >= $${params.length}`;
+    }
+    if (to) {
+      params.push(to);
+      sql += ` AND sa.sale_date::date <= $${params.length}`;
     }
     sql += ' ORDER BY sa.sale_date DESC';
     const result = await pool.query(sql, params);
