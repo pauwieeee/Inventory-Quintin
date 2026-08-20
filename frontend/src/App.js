@@ -36,6 +36,10 @@ function App() {
   const [categories, setCategories] = useState([]);
   const [refreshTick, setRefreshTick] = useState(0);
 
+  const [hostSession, setHostSession] = useState(null); // {token, user} of the real Host while impersonating
+  const [quickLoginUsers, setQuickLoginUsers] = useState([]);
+  const [quickLoginOpen, setQuickLoginOpen] = useState(false);
+
   // Set synchronously (not in a useEffect) so it's guaranteed to be in place
   // before any request fires — avoids a race where the first authenticated
   // fetch goes out without the header and gets bounced with a 401.
@@ -58,6 +62,7 @@ function App() {
     localStorage.removeItem('authUser');
     setAuthToken(null);
     setAuthUser(null);
+    setHostSession(null);
   }, []);
 
   useEffect(() => {
@@ -79,6 +84,35 @@ function App() {
     axios.get(`${API_BASE}/stores`).then((r) => setStores(r.data)).catch(() => {});
     axios.get(`${API_BASE}/categories`).then((r) => setCategories(r.data)).catch(() => {});
   }, [authToken, refreshTick]);
+
+  useEffect(() => {
+    if (!authToken || authUser?.role !== 'host') {
+      setQuickLoginUsers([]);
+      return;
+    }
+    axios.get(`${API_BASE}/team/users`).then((r) => setQuickLoginUsers(r.data)).catch(() => {});
+  }, [authToken, authUser, refreshTick]);
+
+  const handleImpersonate = async (targetUser) => {
+    if (!window.confirm(`Log in as ${targetUser.display_name} (${targetUser.username})?`)) return;
+    try {
+      const res = await axios.post(`${API_BASE}/team/impersonate/${targetUser.id}`);
+      setHostSession({ token: authToken, user: authUser });
+      handleLogin(res.data.token, res.data.user);
+      setQuickLoginOpen(false);
+      setSidebarOpen(false);
+      setPage('dashboard');
+    } catch (err) {
+      setError('Failed to log in as that account: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const returnToHost = () => {
+    if (!hostSession) return;
+    handleLogin(hostSession.token, hostSession.user);
+    setHostSession(null);
+    setPage('dashboard');
+  };
 
   useEffect(() => {
     if (error) {
@@ -127,6 +161,11 @@ function App() {
         <button className="icon-btn" onClick={() => setSidebarOpen((s) => !s)} aria-label="Open menu">☰</button>
         <div className="topbar-logo">AH</div>
         <div className="topbar-brand">AccessoryHub</div>
+        {hostSession && (
+          <button className="btn btn-outline btn-sm" style={{ marginLeft: 'auto' }} onClick={returnToHost}>
+            ↩ Return to Host
+          </button>
+        )}
         <div className="topbar-user">
           <span>{authUser.displayName}</span>
           <span className="role-badge">{authUser.role.toUpperCase()}</span>
@@ -149,6 +188,42 @@ function App() {
               <span>{item.icon}</span> {item.label}
             </button>
           ))}
+
+          {isHost && quickLoginUsers.length > 0 && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,0,0,0.1)' }}>
+              <button
+                className="sidebar-nav-btn"
+                onClick={() => setQuickLoginOpen((o) => !o)}
+                style={{ fontSize: 11, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.05em' }}
+              >
+                <span>🔑</span> Quick Logins {quickLoginOpen ? '▾' : '▸'}
+              </button>
+              {quickLoginOpen && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
+                  {['admin', 'store', 'staff'].map((role) => {
+                    const inRole = quickLoginUsers.filter((u) => u.role === role);
+                    if (inRole.length === 0) return null;
+                    return (
+                      <div key={role} style={{ marginBottom: 6 }}>
+                        <div style={{ fontSize: 10, opacity: 0.5, textTransform: 'uppercase', padding: '4px 12px' }}>{role}s</div>
+                        {inRole.map((u) => (
+                          <button
+                            key={u.id}
+                            className="sidebar-nav-btn"
+                            style={{ fontSize: 12, height: 36 }}
+                            onClick={() => handleImpersonate(u)}
+                          >
+                            <span style={{ fontSize: 11 }}>👤</span> {u.display_name}
+                            <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.5 }}>{u.username}</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div className="sidebar-footer">
           <div className="sidebar-user-name">{authUser.displayName}</div>

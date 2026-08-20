@@ -734,6 +734,24 @@ app.get('/api/team/users', requireRole('host'), async (req, res) => {
   }
 });
 
+// Host-only "log in as" — issues a token for another account without
+// needing its password, since Host already has full authority.
+app.post('/api/team/impersonate/:id', requireRole('host'), async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM users WHERE id = $1 AND role != 'host'", [req.params.id]);
+    const user = result.rows[0];
+    if (!user) return res.status(404).json({ error: 'Account not found' });
+
+    const token = signToken(user);
+    res.json({
+      token,
+      user: { id: user.id, username: user.username, displayName: user.display_name, role: user.role, storeId: user.store_id }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/team/admins', requireRole('host'), async (req, res) => {
   const { username, password, displayName } = req.body;
   if (!username || !password || !displayName) return res.status(400).json({ error: 'username, password, displayName are required' });
