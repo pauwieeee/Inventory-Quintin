@@ -2,12 +2,6 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { API_BASE } from '../App';
 
-// Only Host gets a quick-login shortcut on this public page — showing
-// Admin/Store/Staff credentials here would leak them to anyone who visits.
-const QUICK_ACCOUNTS = [
-  { username: 'host', password: 'host123', role: 'host', displayName: 'Host Superuser' }
-];
-
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -71,26 +65,6 @@ function Login({ onLogin }) {
             {submitting ? 'Signing in...' : 'Login'}
           </button>
         </form>
-
-        <div className="login-quick">
-          <div className="login-quick-title">Quick Login Accounts</div>
-          <div className="login-quick-list">
-            {QUICK_ACCOUNTS.map((acc) => (
-              <button
-                key={acc.username}
-                type="button"
-                className="login-quick-btn"
-                onClick={() => {
-                  setUsername(acc.username);
-                  setPassword(acc.password);
-                }}
-              >
-                <b>{acc.username}</b> / {acc.password}{' '}
-                <span className="quick-meta">• {acc.role} • {acc.displayName}</span>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
