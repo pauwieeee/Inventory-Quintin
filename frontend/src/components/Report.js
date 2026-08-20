@@ -6,7 +6,8 @@ function peso(n) {
   return `₱${Number(n || 0).toLocaleString()}`;
 }
 
-function Report({ stores, setError, refreshTick }) {
+function Report({ authUser, stores, setError, refreshTick }) {
+  const showBreakdown = authUser.role === 'host' || authUser.role === 'admin';
   const [stats, setStats] = useState(null);
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -116,24 +117,26 @@ function Report({ stores, setError, refreshTick }) {
         </div>
       )}
 
-      <div className="panel">
-        <div className="panel-title">Breakdown by Store {rangeActive ? '• Selected Range' : '• All Time'}</div>
-        {breakdown.map((b) => (
-          <div
-            key={b.store.id}
-            style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: 12, borderRadius: 12, border: '1px solid rgba(0,0,0,0.1)', background: '#fafafa', marginBottom: 8
-            }}
-          >
-            <div style={{ fontWeight: 500, fontSize: 12 }}>{b.store.name}</div>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <span style={{ fontSize: 11, opacity: 0.6 }}>{b.count} sales</span>
-              <b style={{ fontSize: 12 }}>{peso(b.total)}</b>
+      {showBreakdown && (
+        <div className="panel">
+          <div className="panel-title">Breakdown by Store {rangeActive ? '• Selected Range' : '• All Time'}</div>
+          {breakdown.map((b) => (
+            <div
+              key={b.store.id}
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: 12, borderRadius: 12, border: '1px solid rgba(0,0,0,0.1)', background: '#fafafa', marginBottom: 8
+              }}
+            >
+              <div style={{ fontWeight: 500, fontSize: 12 }}>{b.store.name}</div>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, opacity: 0.6 }}>{b.count} sales</span>
+                <b style={{ fontSize: 12 }}>{peso(b.total)}</b>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
