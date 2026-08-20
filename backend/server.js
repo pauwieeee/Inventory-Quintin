@@ -543,6 +543,44 @@ app.get('/api/sales', async (req, res) => {
   }
 });
 
+app.delete('/api/sales/:id', requireRole('host'), async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const saleResult = await client.query('SELECT * FROM sales WHERE id = $1 FOR UPDATE', [id]);
+    const sale = saleResult.rows[0];
+    if (!sale) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+
+    const productResult = await client.query('SELECT * FROM products WHERE id = $1 FOR UPDATE', [sale.product_id]);
+    const product = productResult.rows[0];
+    if (product) {
+      const previous_quantity = product.current_quantity;
+      const new_quantity = previous_quantity + sale.quantity_sold;
+      await client.query('UPDATE products SET current_quantity = $1 WHERE id = $2', [new_quantity, sale.product_id]);
+      await client.query(
+        `INSERT INTO inventory_audit (product_id, transaction_type, quantity_change, previous_quantity, new_quantity, reference_id)
+         VALUES ($1,'SALE_DELETED',$2,$3,$4,$5)`,
+        [sale.product_id, sale.quantity_sold, previous_quantity, new_quantity, sale.id]
+      );
+    }
+
+    await client.query("DELETE FROM inventory_audit WHERE reference_id = $1 AND transaction_type = 'SALE'", [id]);
+    await client.query('DELETE FROM sales WHERE id = $1', [id]);
+
+    await client.query('COMMIT');
+    res.json({ message: 'Sale deleted and stock restored', id: Number(id) });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 // ---------- Audit Trail ----------
 
 app.get('/api/audit', async (req, res) => {

@@ -32,6 +32,11 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
   const [confirmError, setConfirmError] = useState('');
   const [verifying, setVerifying] = useState(false);
 
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
   const loadSales = () => {
     setLoading(true);
     axios.get(`${API_BASE}/sales`)
@@ -41,6 +46,41 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
   };
 
   useEffect(loadSales, [refreshTick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const requestDeleteSale = (s) => {
+    setDeleteTarget(s);
+    setDeletePassword('');
+    setDeleteError('');
+  };
+
+  const submitDeleteSale = async () => {
+    if (!deletePassword) {
+      setDeleteError('Enter your password');
+      return;
+    }
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await axios.post(`${API_BASE}/auth/verify-password`, { password: deletePassword });
+    } catch (err) {
+      setDeleteError(err.response?.data?.error || 'Incorrect password');
+      setDeleting(false);
+      return;
+    }
+
+    try {
+      await axios.delete(`${API_BASE}/sales/${deleteTarget.id}`);
+      setSuccessMsg('Sale deleted and stock restored');
+      setDeleteTarget(null);
+      refresh();
+      loadSales();
+    } catch (err) {
+      setError('Failed to delete sale: ' + (err.response?.data?.error || err.message));
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const openModal = () => {
     const storeId = isScoped ? authUser.storeId : (stores[0]?.id || '');
@@ -158,11 +198,12 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
                   <th className="text-right">Total</th>
                   <th>Payment</th>
                   <th>Staff</th>
+                  {isHost && <th className="text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {sales.length === 0 ? (
-                  <tr><td colSpan="7" className="empty-state">No sales recorded yet.</td></tr>
+                  <tr><td colSpan={isHost ? 8 : 7} className="empty-state">No sales recorded yet.</td></tr>
                 ) : (
                   sales.map((s) => (
                     <tr key={s.id}>
@@ -176,6 +217,11 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
                         {Number(s.discount_amount) > 0 && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.6 }}>-{s.discount_amount}</span>}
                       </td>
                       <td>{s.staff_name}</td>
+                      {isHost && (
+                        <td className="text-right">
+                          <button className="btn btn-outline btn-sm" onClick={() => requestDeleteSale(s)}>🗑</button>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -404,6 +450,35 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
               <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmOpen(false)}>Cancel</button>
               <button className="btn btn-black" style={{ flex: 1, justifyContent: 'center' }} onClick={submitSale} disabled={verifying}>
                 {verifying ? 'Verifying...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title" style={{ marginBottom: 4 }}>🔒 Confirm Your Password</div>
+            <p style={{ fontSize: 12, opacity: 0.7, marginBottom: 16 }}>
+              Delete sale of {deleteTarget.product_name} x{deleteTarget.quantity_sold} • {peso(deleteTarget.total)}
+              <br />This restores the stock and cannot be undone.
+            </p>
+            <div className="form-group">
+              <input
+                type="password"
+                placeholder="Your password"
+                value={deletePassword}
+                autoFocus
+                onChange={(e) => setDeletePassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && submitDeleteSale()}
+              />
+            </div>
+            {deleteError && <div className="login-error" style={{ marginBottom: 12 }}>{deleteError}</div>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setDeleteTarget(null)}>Cancel</button>
+              <button className="btn btn-black" style={{ flex: 1, justifyContent: 'center' }} onClick={submitDeleteSale} disabled={deleting}>
+                {deleting ? 'Verifying...' : 'Delete Sale'}
               </button>
             </div>
           </div>
