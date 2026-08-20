@@ -23,6 +23,9 @@ function History({ setError, refreshTick }) {
       .finally(() => setLoading(false));
   }, [refreshTick, from, to, setError]);
 
+  const totalQty = sales.reduce((sum, s) => sum + Number(s.quantity_sold), 0);
+  const totalAmount = sales.reduce((sum, s) => sum + Number(s.total), 0);
+
   return (
     <div>
       <div className="page-head">
@@ -38,6 +41,23 @@ function History({ setError, refreshTick }) {
           <button className="btn btn-outline btn-sm" onClick={() => { setFrom(''); setTo(''); }}>Clear</button>
         )}
       </div>
+
+      {!loading && sales.length > 0 && (
+        <div className="stats-grid cols-3" style={{ marginBottom: 16 }}>
+          <div className="stat-card dark">
+            <div className="stat-label">Transactions</div>
+            <div className="stat-value">{sales.length}</div>
+          </div>
+          <div className="stat-card dark">
+            <div className="stat-label">Total Quantity Sold</div>
+            <div className="stat-value">{totalQty}</div>
+          </div>
+          <div className="stat-card dark">
+            <div className="stat-label">Total Sales Amount</div>
+            <div className="stat-value">{peso(totalAmount)}</div>
+          </div>
+        </div>
+      )}
 
       <div className="panel">
         {loading ? (
@@ -73,6 +93,16 @@ function History({ setError, refreshTick }) {
                   ))
                 )}
               </tbody>
+              {sales.length > 0 && (
+                <tfoot>
+                  <tr style={{ background: '#fafafa', fontWeight: 700 }}>
+                    <td colSpan="3">Total</td>
+                    <td className="text-right">{totalQty}</td>
+                    <td className="text-right">{peso(totalAmount)}</td>
+                    <td colSpan="2"></td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         )}

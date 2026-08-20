@@ -648,6 +648,11 @@ tbody td {
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
+tfoot td {
+  padding: 10px 14px;
+  border-top: 2px solid rgba(0, 0, 0, 0.15);
+}
+
 tbody tr:hover {
   background: rgba(0, 0, 0, 0.02);
 }
