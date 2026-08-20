@@ -377,12 +377,23 @@ app.post('/api/products/:id/stock', requireRole('host', 'admin', 'store'), async
 app.post('/api/sales', async (req, res) => {
   const {
     storeId, productId, qty, discountType, discountValue,
-    paymentMethod, cashAmount, cardAmount, cardType, last4, ref, staffName, remarks
+    paymentMethod, cashAmount, cardAmount, cardType, last4, ref, staffName, remarks, saleDate
   } = req.body;
 
   const quantity = Number(qty);
   if (!storeId || !productId || isNaN(quantity) || quantity <= 0) {
     return res.status(400).json({ error: 'storeId, productId and a positive qty are required' });
+  }
+
+  let resolvedSaleDate = null;
+  if (saleDate) {
+    resolvedSaleDate = new Date(saleDate);
+    if (isNaN(resolvedSaleDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid saleDate' });
+    }
+    if (resolvedSaleDate > new Date()) {
+      return res.status(400).json({ error: 'saleDate cannot be in the future' });
+    }
   }
 
   const ids = await getAccessibleStoreIds(req.user);
@@ -423,20 +434,20 @@ app.post('/api/sales', async (req, res) => {
     const saleResult = await client.query(
       `INSERT INTO sales
         (store_id, product_id, quantity_sold, unit_price, subtotal, discount_type, discount_value, discount_amount, total,
-         payment_method, cash_amount, card_amount, card_type, last4, ref, staff_name, remarks, cashier)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id`,
+         payment_method, cash_amount, card_amount, card_type, last4, ref, staff_name, remarks, cashier, sale_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18, COALESCE($19, NOW())) RETURNING id, sale_date`,
       [
         storeId, productId, quantity, product.unit_price, subtotal, discountType || 'None', discountValue || 0,
         discountAmount, total, paymentMethod || 'Cash', cash_amount, card_amount, cardType || null, last4 || null,
-        ref || null, staffName || req.user.username, remarks || '', req.user.username
+        ref || null, staffName || req.user.username, remarks || '', req.user.username, resolvedSaleDate
       ]
     );
     const sale_id = saleResult.rows[0].id;
 
     await client.query(
-      `INSERT INTO inventory_audit (product_id, transaction_type, quantity_change, previous_quantity, new_quantity, reference_id)
-       VALUES ($1,'SALE',$2,$3,$4,$5)`,
-      [productId, -quantity, previous_quantity, new_quantity, sale_id]
+      `INSERT INTO inventory_audit (product_id, transaction_type, quantity_change, previous_quantity, new_quantity, reference_id, transaction_date)
+       VALUES ($1,'SALE',$2,$3,$4,$5, COALESCE($6, NOW()))`,
+      [productId, -quantity, previous_quantity, new_quantity, sale_id, resolvedSaleDate]
     );
 
     await client.query('COMMIT');

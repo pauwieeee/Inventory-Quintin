@@ -6,9 +6,13 @@ function peso(n) {
   return `₱${Number(n || 0).toLocaleString()}`;
 }
 
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 const EMPTY_SALE = {
   storeId: '', search: '', category: 'All', productId: '', qty: 1,
-  discountType: 'None', discountValue: 0, staffName: '', remarks: '',
+  discountType: 'None', discountValue: 0, staffName: '', remarks: '', saleDate: '',
   paymentMethod: 'Cash', cashAmount: 0, cardAmount: 0, cardType: 'Visa', last4: '', ref: ''
 };
 
@@ -34,7 +38,7 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
 
   const openModal = () => {
     const storeId = isScoped ? authUser.storeId : (stores[0]?.id || '');
-    setSale({ ...EMPTY_SALE, storeId, staffName: isScoped ? authUser.displayName : '' });
+    setSale({ ...EMPTY_SALE, storeId, staffName: isScoped ? authUser.displayName : '', saleDate: today() });
     setShowModal(true);
   };
 
@@ -77,7 +81,8 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
         storeId: sale.storeId, productId: selectedProduct.id, qty: Number(sale.qty),
         discountType: sale.discountType, discountValue: Number(sale.discountValue),
         paymentMethod: sale.paymentMethod, cashAmount: Number(sale.cashAmount), cardAmount: Number(sale.cardAmount),
-        cardType: sale.cardType, last4: sale.last4, ref: sale.ref, staffName: sale.staffName, remarks: sale.remarks
+        cardType: sale.cardType, last4: sale.last4, ref: sale.ref, staffName: sale.staffName, remarks: sale.remarks,
+        saleDate: sale.saleDate || undefined
       });
       setSuccessMsg('Sale recorded — inventory updated');
       setShowModal(false);
@@ -143,6 +148,16 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
             <div className="modal-head">
               <div className="modal-title">Add Sale • ₱</div>
               <button className="icon-btn" onClick={() => setShowModal(false)}>✕</button>
+            </div>
+
+            <div className="form-group" style={{ maxWidth: 220 }}>
+              <label>📅 Sale Date</label>
+              <input
+                type="date"
+                value={sale.saleDate}
+                max={today()}
+                onChange={(e) => setSale({ ...sale, saleDate: e.target.value })}
+              />
             </div>
 
             <div className="two-col-modal">
