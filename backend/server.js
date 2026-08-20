@@ -696,7 +696,7 @@ app.post('/api/team/staff', requireRole('host'), async (req, res) => {
 });
 
 app.put('/api/team/admins/:id', requireRole('host'), async (req, res) => {
-  const { displayName, password } = req.body;
+  const { username, displayName, password } = req.body;
   try {
     const existing = await pool.query("SELECT * FROM users WHERE id = $1 AND role = 'admin'", [req.params.id]);
     const u = existing.rows[0];
@@ -704,11 +704,12 @@ app.put('/api/team/admins/:id', requireRole('host'), async (req, res) => {
 
     const password_hash = password ? await bcrypt.hash(password, 10) : u.password_hash;
     const result = await pool.query(
-      `UPDATE users SET display_name = $1, password_hash = $2 WHERE id = $3 RETURNING id, username, display_name, role`,
-      [displayName ?? u.display_name, password_hash, req.params.id]
+      `UPDATE users SET username = $1, display_name = $2, password_hash = $3 WHERE id = $4 RETURNING id, username, display_name, role`,
+      [username || u.username, displayName ?? u.display_name, password_hash, req.params.id]
     );
     res.json(result.rows[0]);
   } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Username already exists' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -755,7 +756,7 @@ app.delete('/api/team/admins/:id', requireRole('host'), async (req, res) => {
 });
 
 app.put('/api/team/staff/:id', requireRole('host'), async (req, res) => {
-  const { displayName, password, storeId } = req.body;
+  const { username, displayName, password, storeId } = req.body;
   try {
     const existing = await pool.query("SELECT * FROM users WHERE id = $1 AND role IN ('staff','store')", [req.params.id]);
     const u = existing.rows[0];
@@ -763,11 +764,12 @@ app.put('/api/team/staff/:id', requireRole('host'), async (req, res) => {
 
     const password_hash = password ? await bcrypt.hash(password, 10) : u.password_hash;
     const result = await pool.query(
-      `UPDATE users SET display_name = $1, password_hash = $2, store_id = $3 WHERE id = $4 RETURNING id, username, display_name, role, store_id`,
-      [displayName ?? u.display_name, password_hash, storeId ?? u.store_id, req.params.id]
+      `UPDATE users SET username = $1, display_name = $2, password_hash = $3, store_id = $4 WHERE id = $5 RETURNING id, username, display_name, role, store_id`,
+      [username || u.username, displayName ?? u.display_name, password_hash, storeId ?? u.store_id, req.params.id]
     );
     res.json(result.rows[0]);
   } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Username already exists' });
     res.status(500).json({ error: err.message });
   }
 });

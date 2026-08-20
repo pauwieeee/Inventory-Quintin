@@ -70,10 +70,10 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
 
   const saveAdmin = async () => {
     if (adminForm.id) {
-      if (!adminForm.displayName) return;
+      if (!adminForm.displayName || !adminForm.username) return;
       try {
         await axios.put(`${API_BASE}/team/admins/${adminForm.id}`, {
-          displayName: adminForm.displayName, password: adminForm.password || undefined
+          username: adminForm.username, displayName: adminForm.displayName, password: adminForm.password || undefined
         });
         setSuccessMsg('Admin updated');
         setShowAdminModal(false);
@@ -184,10 +184,10 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
 
   const saveStaff = async () => {
     if (staffForm.id) {
-      if (!staffForm.displayName || !staffForm.storeId) return;
+      if (!staffForm.displayName || !staffForm.storeId || !staffForm.username) return;
       try {
         await axios.put(`${API_BASE}/team/staff/${staffForm.id}`, {
-          displayName: staffForm.displayName, password: staffForm.password || undefined, storeId: staffForm.storeId
+          username: staffForm.username, displayName: staffForm.displayName, password: staffForm.password || undefined, storeId: staffForm.storeId
         });
         setSuccessMsg('Staff updated');
         setShowStaffModal(false);
@@ -305,9 +305,7 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
         <div className="modal-overlay" onClick={() => setShowAdminModal(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title" style={{ marginBottom: 12 }}>{adminForm.id ? 'Edit Admin' : 'Add Admin'}</div>
-            {!adminForm.id && (
-              <div className="form-group"><input placeholder="Username" value={adminForm.username} onChange={(e) => setAdminForm({ ...adminForm, username: e.target.value })} /></div>
-            )}
+            <div className="form-group"><input placeholder="Username" value={adminForm.username} onChange={(e) => setAdminForm({ ...adminForm, username: e.target.value })} /></div>
             <div className="form-group">
               <input placeholder={adminForm.id ? 'New Password (leave blank to keep)' : 'Password'} value={adminForm.password} onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })} />
             </div>
@@ -337,9 +335,7 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
         <div className="modal-overlay" onClick={() => setShowStaffModal(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title" style={{ marginBottom: 12 }}>{staffForm.id ? 'Edit Staff Account' : 'Add Staff Account'}</div>
-            {!staffForm.id && (
-              <div className="form-group"><input placeholder="Username" value={staffForm.username} onChange={(e) => setStaffForm({ ...staffForm, username: e.target.value })} /></div>
-            )}
+            <div className="form-group"><input placeholder="Username" value={staffForm.username} onChange={(e) => setStaffForm({ ...staffForm, username: e.target.value })} /></div>
             <div className="form-group">
               <input placeholder={staffForm.id ? 'New Password (leave blank to keep)' : 'Password'} value={staffForm.password} onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })} />
             </div>
