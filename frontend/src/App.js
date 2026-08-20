@@ -169,7 +169,7 @@ function App() {
         {page === 'sales' && <SalesPage {...sharedProps} />}
         {page === 'history' && <History {...sharedProps} />}
         {page === 'report' && <Report {...sharedProps} />}
-        {page === 'team' && isHost && <Team {...sharedProps} />}
+        {page === 'team' && isHost && <Team {...sharedProps} onSelfUpdate={handleLogin} />}
       </div>
     </div>
   );

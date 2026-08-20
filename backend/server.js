@@ -66,6 +66,31 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
 });
 
+app.put('/api/auth/me', requireAuth, async (req, res) => {
+  const { username, displayName, password } = req.body;
+  try {
+    const existing = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
+    const u = existing.rows[0];
+    if (!u) return res.status(404).json({ error: 'User not found' });
+
+    const password_hash = password ? await bcrypt.hash(password, 10) : u.password_hash;
+    const result = await pool.query(
+      `UPDATE users SET username = $1, display_name = $2, password_hash = $3 WHERE id = $4
+       RETURNING id, username, display_name, role, store_id`,
+      [username || u.username, displayName ?? u.display_name, password_hash, req.user.id]
+    );
+    const updated = result.rows[0];
+    const token = signToken({ id: updated.id, username: updated.username, display_name: updated.display_name, role: updated.role, store_id: updated.store_id });
+    res.json({
+      token,
+      user: { id: updated.id, username: updated.username, displayName: updated.display_name, role: updated.role, storeId: updated.store_id }
+    });
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Username already exists' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/auth/verify-password', requireAuth, async (req, res) => {
   const { password } = req.body;
   if (!password) return res.status(400).json({ error: 'password is required' });

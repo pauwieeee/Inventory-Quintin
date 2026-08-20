@@ -6,7 +6,7 @@ const EMPTY_ADMIN = { id: null, username: '', password: '', displayName: '' };
 const EMPTY_STORE = { id: null, name: '', adminId: '', username: '', password: '', displayName: '' };
 const EMPTY_STAFF = { id: null, username: '', password: '', displayName: '', storeId: '' };
 
-function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
+function Team({ authUser, stores, setError, setSuccessMsg, refresh, refreshTick, onSelfUpdate }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,6 +18,9 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
 
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [staffForm, setStaffForm] = useState(EMPTY_STAFF);
+
+  const [showSelfModal, setShowSelfModal] = useState(false);
+  const [selfForm, setSelfForm] = useState({ username: authUser.username, password: '', displayName: authUser.displayName });
 
   // Password re-confirmation gate for any edit or delete action.
   const [pendingAction, setPendingAction] = useState(null); // { label, run }
@@ -235,6 +238,28 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
     }
   };
 
+  // ---------- My Account (Host self-edit) ----------
+  const openEditSelf = () => {
+    setSelfForm({ username: authUser.username, password: '', displayName: authUser.displayName });
+    setShowSelfModal(true);
+  };
+
+  const saveSelf = async () => {
+    if (!selfForm.username || !selfForm.displayName) return;
+    try {
+      const res = await axios.put(`${API_BASE}/auth/me`, {
+        username: selfForm.username, displayName: selfForm.displayName, password: selfForm.password || undefined
+      });
+      onSelfUpdate(res.data.token, res.data.user);
+      setSuccessMsg('Your account was updated');
+      setShowSelfModal(false);
+    } catch (err) {
+      setError('Failed to update your account: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const submitSelfForm = () => requestConfirm('Save changes to your own account', saveSelf);
+
   if (loading) return <div className="spinner-container"><div className="spinner"></div></div>;
 
   return (
@@ -244,6 +269,19 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
+        <div className="panel">
+          <div className="page-head" style={{ marginBottom: 12 }}>
+            <div className="panel-title" style={{ marginBottom: 0 }}>My Account • Host</div>
+            <button className="btn btn-black btn-sm" onClick={openEditSelf}>Edit</button>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 10, borderRadius: 10, background: '#fafafa', border: '1px solid rgba(0,0,0,0.1)' }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 12 }}>{authUser.displayName}</div>
+              <div style={{ fontSize: 11, opacity: 0.6 }}>{authUser.username} • host</div>
+            </div>
+          </div>
+        </div>
+
         <div className="panel">
           <div className="page-head" style={{ marginBottom: 12 }}>
             <div className="panel-title" style={{ marginBottom: 0 }}>Admins</div>
@@ -371,6 +409,20 @@ function Team({ stores, setError, setSuccessMsg, refresh, refreshTick }) {
               </select>
             </div>
             <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={submitStaffForm}>{staffForm.id ? 'Save Changes' : 'Add Staff'}</button>
+          </div>
+        </div>
+      )}
+
+      {showSelfModal && (
+        <div className="modal-overlay" onClick={() => setShowSelfModal(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title" style={{ marginBottom: 12 }}>Edit My Account</div>
+            <div className="form-group"><input placeholder="Username" value={selfForm.username} onChange={(e) => setSelfForm({ ...selfForm, username: e.target.value })} /></div>
+            <div className="form-group">
+              <input placeholder="New Password (leave blank to keep)" value={selfForm.password} onChange={(e) => setSelfForm({ ...selfForm, password: e.target.value })} />
+            </div>
+            <div className="form-group"><input placeholder="Display Name" value={selfForm.displayName} onChange={(e) => setSelfForm({ ...selfForm, displayName: e.target.value })} /></div>
+            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={submitSelfForm}>Save Changes</button>
           </div>
         </div>
       )}
