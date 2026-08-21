@@ -37,6 +37,19 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
 
   const defaultStoreId = useMemo(() => stores[0]?.id || '', [stores]);
 
+  const totals = useMemo(() => {
+    return products.reduce(
+      (acc, p) => {
+        const qty = Number(p.current_quantity) || 0;
+        acc.totalQty += qty;
+        acc.totalPrice += Number(p.unit_price) * qty;
+        acc.totalCost += Number(p.cost) * qty;
+        return acc;
+      },
+      { totalQty: 0, totalPrice: 0, totalCost: 0 }
+    );
+  }, [products]);
+
   const openAdd = () => {
     setEditing(null);
     setForm({ ...EMPTY_FORM, category: categories[0]?.name || '', storeId: authUser.storeId || defaultStoreId });
@@ -144,6 +157,32 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
           <option value="All">All Categories</option>
           {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
         </select>
+      </div>
+
+      <div
+        className="inventory-totals-box"
+        style={{
+          border: '2px solid #000',
+          borderRadius: 16,
+          padding: 16,
+          marginBottom: 16,
+          display: 'flex',
+          gap: 32,
+          flexWrap: 'wrap'
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ opacity: 0.6, fontSize: 12 }}>Total Quantity</span>
+          <b style={{ fontSize: 20 }}>{totals.totalQty.toLocaleString()}</b>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ opacity: 0.6, fontSize: 12 }}>Total Price (Price × Qty)</span>
+          <b style={{ fontSize: 20 }}>₱{totals.totalPrice.toLocaleString()}</b>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ opacity: 0.6, fontSize: 12 }}>Total Cost (Cost × Qty)</span>
+          <b style={{ fontSize: 20 }}>₱{totals.totalCost.toLocaleString()}</b>
+        </div>
       </div>
 
       {isHost && (
