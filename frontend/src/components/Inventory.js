@@ -159,6 +159,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
         </select>
       </div>
 
+      {(authUser.role === 'host' || authUser.role === 'admin') && (
       <div
         className="inventory-totals-box"
         style={{
@@ -184,6 +185,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
           <b style={{ fontSize: 20 }}>₱{totals.totalCost.toLocaleString()}</b>
         </div>
       </div>
+      )}
 
       {isHost && (
         <div className="panel">
