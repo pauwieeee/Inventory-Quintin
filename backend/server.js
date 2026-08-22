@@ -657,7 +657,7 @@ app.delete('/api/sales/:id', requireRole('host'), async (req, res) => {
 
 // ---------- Audit Trail ----------
 
-app.get('/api/audit', async (req, res) => {
+app.get('/api/audit', requireRole('host'), async (req, res) => {
   try {
     const ids = await getAccessibleStoreIds(req.user);
     if (ids.length === 0) return res.json([]);

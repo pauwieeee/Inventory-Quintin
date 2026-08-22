@@ -14,7 +14,8 @@ const TX_LABELS = {
   SALE_DELETED: 'Sale Deleted'
 };
 
-function History({ setError, refreshTick }) {
+function History({ authUser, setError, refreshTick }) {
+  const isHost = authUser?.role === 'host';
   const [tab, setTab] = useState('sales'); // 'sales' | 'inventory'
 
   const [sales, setSales] = useState([]);
@@ -23,17 +24,19 @@ function History({ setError, refreshTick }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
+  const effectiveTab = tab === 'inventory' && !isHost ? 'sales' : tab;
+
   useEffect(() => {
     setLoading(true);
     const params = {};
     if (from) params.from = from;
     if (to) params.to = to;
-    const url = tab === 'sales' ? `${API_BASE}/sales` : `${API_BASE}/audit`;
+    const url = effectiveTab === 'sales' ? `${API_BASE}/sales` : `${API_BASE}/audit`;
     axios.get(url, { params })
-      .then((r) => (tab === 'sales' ? setSales(r.data) : setAudit(r.data)))
+      .then((r) => (effectiveTab === 'sales' ? setSales(r.data) : setAudit(r.data)))
       .catch((err) => setError('Failed to load history: ' + (err.response?.data?.error || err.message)))
       .finally(() => setLoading(false));
-  }, [refreshTick, from, to, tab, setError]);
+  }, [refreshTick, from, to, effectiveTab, setError]);
 
   const totalQty = sales.reduce((sum, s) => sum + Number(s.quantity_sold), 0);
   const totalAmount = sales.reduce((sum, s) => sum + Number(s.total), 0);
@@ -41,23 +44,25 @@ function History({ setError, refreshTick }) {
   return (
     <div>
       <div className="page-head">
-        <div className="page-title">History • {tab === 'sales' ? 'Sales Log' : 'Inventory Log'}</div>
+        <div className="page-title">History • {effectiveTab === 'sales' ? 'Sales Log' : 'Inventory Log'}</div>
       </div>
 
-      <div className="filter-row" style={{ marginBottom: 8 }}>
-        <button
-          className={`btn btn-sm ${tab === 'sales' ? 'btn-black' : 'btn-outline'}`}
-          onClick={() => setTab('sales')}
-        >
-          Sales Log
-        </button>
-        <button
-          className={`btn btn-sm ${tab === 'inventory' ? 'btn-black' : 'btn-outline'}`}
-          onClick={() => setTab('inventory')}
-        >
-          Inventory Log
-        </button>
-      </div>
+      {isHost && (
+        <div className="filter-row" style={{ marginBottom: 8 }}>
+          <button
+            className={`btn btn-sm ${effectiveTab === 'sales' ? 'btn-black' : 'btn-outline'}`}
+            onClick={() => setTab('sales')}
+          >
+            Sales Log
+          </button>
+          <button
+            className={`btn btn-sm ${effectiveTab === 'inventory' ? 'btn-black' : 'btn-outline'}`}
+            onClick={() => setTab('inventory')}
+          >
+            Inventory Log
+          </button>
+        </div>
+      )}
 
       <div className="date-filter-row">
         <label>From</label>
@@ -69,7 +74,7 @@ function History({ setError, refreshTick }) {
         )}
       </div>
 
-      {tab === 'sales' && !loading && sales.length > 0 && (
+      {effectiveTab === 'sales' && !loading && sales.length > 0 && (
         <div className="stats-grid cols-3" style={{ marginBottom: 16 }}>
           <div className="stat-card dark">
             <div className="stat-label">Transactions</div>
@@ -89,7 +94,7 @@ function History({ setError, refreshTick }) {
       <div className="panel">
         {loading ? (
           <div className="spinner-container"><div className="spinner"></div></div>
-        ) : tab === 'sales' ? (
+        ) : effectiveTab === 'sales' ? (
           <div className="table-wrapper">
             <table>
               <thead>
