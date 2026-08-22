@@ -661,12 +661,29 @@ app.get('/api/audit', async (req, res) => {
   try {
     const ids = await getAccessibleStoreIds(req.user);
     if (ids.length === 0) return res.json([]);
-    const result = await pool.query(
-      `SELECT a.*, p.name AS product_name FROM inventory_audit a
-       JOIN products p ON p.id = a.product_id WHERE p.store_id = ANY($1)
-       ORDER BY a.transaction_date DESC`,
-      [ids]
-    );
+    const { storeId, from, to } = req.query;
+    let sql = `
+      SELECT a.*, p.name AS product_name, p.store_id, s.name AS store_name
+      FROM inventory_audit a
+      JOIN products p ON p.id = a.product_id
+      JOIN stores s ON s.id = p.store_id
+      WHERE p.store_id = ANY($1)
+    `;
+    const params = [ids];
+    if (storeId && storeId !== 'All') {
+      params.push(storeId);
+      sql += ` AND p.store_id = $${params.length}`;
+    }
+    if (from) {
+      params.push(from);
+      sql += ` AND a.transaction_date::date >= $${params.length}`;
+    }
+    if (to) {
+      params.push(to);
+      sql += ` AND a.transaction_date::date <= $${params.length}`;
+    }
+    sql += ' ORDER BY a.transaction_date DESC';
+    const result = await pool.query(sql, params);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

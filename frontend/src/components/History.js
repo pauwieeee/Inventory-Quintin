@@ -6,8 +6,19 @@ function peso(n) {
   return `₱${Number(n || 0).toLocaleString()}`;
 }
 
+const TX_LABELS = {
+  DELIVERY: 'Stock-in',
+  STOCK_OUT: 'Stock-out',
+  ADJUST: 'Adjust',
+  SALE: 'Sale',
+  SALE_DELETED: 'Sale Deleted'
+};
+
 function History({ setError, refreshTick }) {
+  const [tab, setTab] = useState('sales'); // 'sales' | 'inventory'
+
   const [sales, setSales] = useState([]);
+  const [audit, setAudit] = useState([]);
   const [loading, setLoading] = useState(true);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -17,11 +28,12 @@ function History({ setError, refreshTick }) {
     const params = {};
     if (from) params.from = from;
     if (to) params.to = to;
-    axios.get(`${API_BASE}/sales`, { params })
-      .then((r) => setSales(r.data))
+    const url = tab === 'sales' ? `${API_BASE}/sales` : `${API_BASE}/audit`;
+    axios.get(url, { params })
+      .then((r) => (tab === 'sales' ? setSales(r.data) : setAudit(r.data)))
       .catch((err) => setError('Failed to load history: ' + (err.response?.data?.error || err.message)))
       .finally(() => setLoading(false));
-  }, [refreshTick, from, to, setError]);
+  }, [refreshTick, from, to, tab, setError]);
 
   const totalQty = sales.reduce((sum, s) => sum + Number(s.quantity_sold), 0);
   const totalAmount = sales.reduce((sum, s) => sum + Number(s.total), 0);
@@ -29,7 +41,22 @@ function History({ setError, refreshTick }) {
   return (
     <div>
       <div className="page-head">
-        <div className="page-title">History • Sales Log</div>
+        <div className="page-title">History • {tab === 'sales' ? 'Sales Log' : 'Inventory Log'}</div>
+      </div>
+
+      <div className="filter-row" style={{ marginBottom: 8 }}>
+        <button
+          className={`btn btn-sm ${tab === 'sales' ? 'btn-black' : 'btn-outline'}`}
+          onClick={() => setTab('sales')}
+        >
+          Sales Log
+        </button>
+        <button
+          className={`btn btn-sm ${tab === 'inventory' ? 'btn-black' : 'btn-outline'}`}
+          onClick={() => setTab('inventory')}
+        >
+          Inventory Log
+        </button>
       </div>
 
       <div className="date-filter-row">
@@ -42,7 +69,7 @@ function History({ setError, refreshTick }) {
         )}
       </div>
 
-      {!loading && sales.length > 0 && (
+      {tab === 'sales' && !loading && sales.length > 0 && (
         <div className="stats-grid cols-3" style={{ marginBottom: 16 }}>
           <div className="stat-card dark">
             <div className="stat-label">Transactions</div>
@@ -62,7 +89,7 @@ function History({ setError, refreshTick }) {
       <div className="panel">
         {loading ? (
           <div className="spinner-container"><div className="spinner"></div></div>
-        ) : (
+        ) : tab === 'sales' ? (
           <div className="table-wrapper">
             <table>
               <thead>
@@ -103,6 +130,47 @@ function History({ setError, refreshTick }) {
                   </tr>
                 </tfoot>
               )}
+            </table>
+          </div>
+        ) : (
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Store</th>
+                  <th>Product</th>
+                  <th>Type</th>
+                  <th className="text-right">Change</th>
+                  <th className="text-right">Before</th>
+                  <th className="text-right">After</th>
+                </tr>
+              </thead>
+              <tbody>
+                {audit.length === 0 ? (
+                  <tr><td colSpan="7" className="empty-state">No inventory activity for this range.</td></tr>
+                ) : (
+                  audit.map((a) => (
+                    <tr key={a.id}>
+                      <td>{new Date(a.transaction_date).toLocaleString()}</td>
+                      <td>{a.store_name}</td>
+                      <td>{a.product_name}</td>
+                      <td>
+                        <span className={`badge ${a.quantity_change < 0 ? 'badge-low' : ''}`}>
+                          {TX_LABELS[a.transaction_type] || a.transaction_type}
+                        </span>
+                      </td>
+                      <td className="text-right">
+                        <b style={{ color: a.quantity_change < 0 ? '#c0392b' : '#1e8e3e' }}>
+                          {a.quantity_change > 0 ? `+${a.quantity_change}` : a.quantity_change}
+                        </b>
+                      </td>
+                      <td className="text-right">{a.previous_quantity}</td>
+                      <td className="text-right">{a.new_quantity}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
             </table>
           </div>
         )}
