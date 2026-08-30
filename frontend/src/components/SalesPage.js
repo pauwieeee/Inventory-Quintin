@@ -36,7 +36,8 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
 
   const loadSales = () => {
     setLoading(true);
-    axios.get(`${API_BASE}/sales`)
+    const todayDate = today();
+    axios.get(`${API_BASE}/sales`, { params: { from: todayDate, to: todayDate } })
       .then((r) => setSales(r.data))
       .catch((err) => setError('Failed to load sales: ' + (err.response?.data?.error || err.message)))
       .finally(() => setLoading(false));
@@ -160,7 +161,7 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
   return (
     <div>
       <div className="page-head">
-        <div className="page-title">Sales</div>
+        <div className="page-title">Sales • Today</div>
         <button className="btn btn-black" onClick={openModal}>+ Add Sale</button>
       </div>
 
