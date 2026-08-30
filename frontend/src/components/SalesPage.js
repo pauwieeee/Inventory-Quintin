@@ -27,10 +27,7 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
   const isScoped = authUser.role === 'store' || authUser.role === 'staff';
   const isHost = authUser.role === 'host';
 
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [confirmError, setConfirmError] = useState('');
-  const [verifying, setVerifying] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletePassword, setDeletePassword] = useState('');
@@ -133,28 +130,9 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
     return true;
   };
 
-  const openConfirmSale = () => {
-    if (!validateSale()) return;
-    setConfirmPassword('');
-    setConfirmError('');
-    setConfirmOpen(true);
-  };
-
   const submitSale = async () => {
-    if (!confirmPassword) {
-      setConfirmError('Enter your password');
-      return;
-    }
-    setVerifying(true);
-    setConfirmError('');
-    try {
-      await axios.post(`${API_BASE}/auth/verify-password`, { password: confirmPassword });
-    } catch (err) {
-      setConfirmError(err.response?.data?.error || 'Incorrect password');
-      setVerifying(false);
-      return;
-    }
-
+    if (!validateSale()) return;
+    setSubmitting(true);
     try {
       await axios.post(`${API_BASE}/sales`, {
         storeId: sale.storeId, productId: selectedProduct.id, qty: Number(sale.qty),
@@ -164,15 +142,13 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
         saleDate: isHost ? (sale.saleDate || undefined) : undefined
       });
       setSuccessMsg('Sale recorded — inventory updated');
-      setConfirmOpen(false);
       setShowModal(false);
       refresh();
       loadSales();
     } catch (err) {
       setError('Failed to record sale: ' + (err.response?.data?.error || err.message));
-      setConfirmOpen(false);
     } finally {
-      setVerifying(false);
+      setSubmitting(false);
     }
   };
 
@@ -455,38 +431,15 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
                   </div>
                 )}
 
-                <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center', marginTop: 12 }} onClick={openConfirmSale}>
-                  Confirm Sale • {peso(total)}
+                <button
+                  className="btn btn-black"
+                  style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
+                  onClick={submitSale}
+                  disabled={submitting}
+                >
+                  {submitting ? 'Recording...' : `Confirm Sale • ${peso(total)}`}
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {confirmOpen && (
-        <div className="modal-overlay" onClick={() => setConfirmOpen(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title" style={{ marginBottom: 4 }}>🔒 Confirm Your Password</div>
-            <p style={{ fontSize: 12, opacity: 0.7, marginBottom: 16 }}>
-              Confirm sale of {selectedProduct?.name} x{sale.qty} • {peso(total)}
-            </p>
-            <div className="form-group">
-              <input
-                type="password"
-                placeholder="Your password"
-                value={confirmPassword}
-                autoFocus
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && submitSale()}
-              />
-            </div>
-            {confirmError && <div className="login-error" style={{ marginBottom: 12 }}>{confirmError}</div>}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmOpen(false)}>Cancel</button>
-              <button className="btn btn-black" style={{ flex: 1, justifyContent: 'center' }} onClick={submitSale} disabled={verifying}>
-                {verifying ? 'Verifying...' : 'Confirm'}
-              </button>
             </div>
           </div>
         </div>
