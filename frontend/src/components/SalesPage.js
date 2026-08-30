@@ -26,7 +26,9 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
 
   const isScoped = authUser.role === 'store' || authUser.role === 'staff';
   const isHost = authUser.role === 'host';
+  const canFilterStore = authUser.role !== 'staff';
 
+  const [storeFilter, setStoreFilter] = useState('All');
   const [submitting, setSubmitting] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -37,13 +39,15 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
   const loadSales = () => {
     setLoading(true);
     const todayDate = today();
-    axios.get(`${API_BASE}/sales`, { params: { from: todayDate, to: todayDate } })
+    const params = { from: todayDate, to: todayDate };
+    if (canFilterStore && storeFilter !== 'All') params.storeId = storeFilter;
+    axios.get(`${API_BASE}/sales`, { params })
       .then((r) => setSales(r.data))
       .catch((err) => setError('Failed to load sales: ' + (err.response?.data?.error || err.message)))
       .finally(() => setLoading(false));
   };
 
-  useEffect(loadSales, [refreshTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(loadSales, [refreshTick, storeFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const requestDeleteSale = (s) => {
     setDeleteTarget(s);
@@ -164,6 +168,15 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
         <div className="page-title">Sales • Today</div>
         <button className="btn btn-black" onClick={openModal}>+ Add Sale</button>
       </div>
+
+      {canFilterStore && (
+        <div className="filter-row">
+          <select className="pill-select" value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}>
+            <option value="All">All Stores</option>
+            {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+      )}
 
       {!loading && sales.length > 0 && (
         <div className="stats-grid cols-4" style={{ marginBottom: 16 }}>
