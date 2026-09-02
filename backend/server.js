@@ -617,6 +617,82 @@ app.get('/api/sales', async (req, res) => {
   }
 });
 
+app.put('/api/sales/:id', requireRole('host'), async (req, res) => {
+  const { id } = req.params;
+  const { qty, discountType, discountValue, paymentMethod, cashAmount, cardAmount, cardType, last4, ref, staffName, remarks } = req.body;
+
+  const newQty = Number(qty);
+  if (isNaN(newQty) || newQty <= 0) {
+    return res.status(400).json({ error: 'A positive qty is required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const saleResult = await client.query('SELECT * FROM sales WHERE id = $1 FOR UPDATE', [id]);
+    const sale = saleResult.rows[0];
+    if (!sale) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+
+    const productResult = await client.query('SELECT * FROM products WHERE id = $1 FOR UPDATE', [sale.product_id]);
+    const product = productResult.rows[0];
+    if (!product) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const previous_quantity = product.current_quantity;
+    const restored_quantity = previous_quantity + sale.quantity_sold;
+    if (restored_quantity < newQty) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Insufficient stock for the new quantity', available_quantity: restored_quantity });
+    }
+    const new_quantity = restored_quantity - newQty;
+
+    const subtotal = Number(sale.unit_price) * newQty;
+    let discountAmount = 0;
+    if (discountType === 'Percent') discountAmount = Math.round((subtotal * Number(discountValue || 0)) / 100);
+    else if (discountType === 'Fixed') discountAmount = Math.min(Number(discountValue || 0), subtotal);
+    const total = subtotal - discountAmount;
+
+    if (paymentMethod === 'Split' && Number(cashAmount || 0) + Number(cardAmount || 0) !== total) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Split cash + card must equal total' });
+    }
+
+    const cash_amount = paymentMethod === 'Cash' ? total : paymentMethod === 'Split' ? Number(cashAmount || 0) : 0;
+    const card_amount = paymentMethod === 'Card' ? total : paymentMethod === 'Split' ? Number(cardAmount || 0) : 0;
+
+    await client.query('UPDATE products SET current_quantity = $1 WHERE id = $2', [new_quantity, sale.product_id]);
+    await client.query(
+      `UPDATE sales SET quantity_sold = $1, subtotal = $2, discount_type = $3, discount_value = $4, discount_amount = $5,
+        total = $6, payment_method = $7, cash_amount = $8, card_amount = $9, card_type = $10, last4 = $11, ref = $12,
+        staff_name = $13, remarks = $14
+       WHERE id = $15`,
+      [
+        newQty, subtotal, discountType || 'None', discountValue || 0, discountAmount, total,
+        paymentMethod || 'Cash', cash_amount, card_amount, cardType || null, last4 || null,
+        ref || null, staffName || sale.staff_name, remarks || '', id
+      ]
+    );
+    await client.query(
+      `INSERT INTO inventory_audit (product_id, transaction_type, quantity_change, previous_quantity, new_quantity, reference_id)
+       VALUES ($1,'SALE_EDITED',$2,$3,$4,$5)`,
+      [sale.product_id, new_quantity - previous_quantity, previous_quantity, new_quantity, id]
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'Sale updated and inventory adjusted', id: Number(id), new_quantity, total });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 app.delete('/api/sales/:id', requireRole('host'), async (req, res) => {
   const { id } = req.params;
   const client = await pool.connect();

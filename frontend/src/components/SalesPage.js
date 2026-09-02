@@ -36,6 +36,10 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
 
+  const [editTarget, setEditTarget] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+
   const loadSales = () => {
     setLoading(true);
     const todayDate = today();
@@ -81,6 +85,59 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
       setDeleteTarget(null);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const openEdit = (s) => {
+    setEditTarget(s);
+    setEditForm({
+      qty: s.quantity_sold,
+      discountType: s.discount_type || 'None',
+      discountValue: s.discount_value || 0,
+      paymentMethod: s.payment_method || 'Cash',
+      cashAmount: s.cash_amount || 0,
+      cardAmount: s.card_amount || 0,
+      cardType: s.card_type || 'Visa',
+      last4: s.last4 || '',
+      ref: s.ref || '',
+      staffName: s.staff_name || '',
+      remarks: s.remarks || ''
+    });
+  };
+
+  const editSubtotal = editTarget ? Number(editTarget.unit_price) * Number(editForm?.qty || 0) : 0;
+  const editDiscountAmount = editForm?.discountType === 'Percent'
+    ? Math.round((editSubtotal * Number(editForm.discountValue || 0)) / 100)
+    : editForm?.discountType === 'Fixed'
+      ? Math.min(Number(editForm.discountValue || 0), editSubtotal)
+      : 0;
+  const editTotal = editSubtotal - editDiscountAmount;
+
+  const submitEdit = async () => {
+    if (!editTarget || !editForm) return;
+    if (editForm.qty <= 0) {
+      setError('Invalid quantity');
+      return;
+    }
+    if (editForm.paymentMethod === 'Split' && Number(editForm.cashAmount) + Number(editForm.cardAmount) !== editTotal) {
+      setError('Split cash + card must equal total');
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      await axios.put(`${API_BASE}/sales/${editTarget.id}`, {
+        qty: Number(editForm.qty), discountType: editForm.discountType, discountValue: Number(editForm.discountValue),
+        paymentMethod: editForm.paymentMethod, cashAmount: Number(editForm.cashAmount), cardAmount: Number(editForm.cardAmount),
+        cardType: editForm.cardType, last4: editForm.last4, ref: editForm.ref, staffName: editForm.staffName, remarks: editForm.remarks
+      });
+      setSuccessMsg('Sale updated');
+      setEditTarget(null);
+      refresh();
+      loadSales();
+    } catch (err) {
+      setError('Failed to update sale: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -235,7 +292,10 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
                       <td>{s.staff_name}</td>
                       {isHost && (
                         <td className="text-right">
-                          <button className="btn btn-outline btn-sm" onClick={() => requestDeleteSale(s)}>🗑</button>
+                          <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                            <button className="btn btn-outline btn-sm" onClick={() => openEdit(s)}>✎ Edit</button>
+                            <button className="btn btn-outline btn-sm" onClick={() => requestDeleteSale(s)}>🗑</button>
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -455,6 +515,100 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {editTarget && editForm && (
+        <div className="modal-overlay" onClick={() => setEditTarget(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-title">Edit Sale • {editTarget.product_name}</div>
+              <button className="icon-btn" onClick={() => setEditTarget(null)}>✕</button>
+            </div>
+
+            <div className="form-group">
+              <label>Quantity</label>
+              <input
+                type="number"
+                value={editForm.qty}
+                onChange={(e) => setEditForm({ ...editForm, qty: e.target.value })}
+              />
+            </div>
+
+            <div className="form-grid-3">
+              <div className="form-group">
+                <label>Discount Type</label>
+                <select value={editForm.discountType} onChange={(e) => setEditForm({ ...editForm, discountType: e.target.value })}>
+                  <option>None</option>
+                  <option>Percent</option>
+                  <option>Fixed</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Discount Value</label>
+                <input type="number" value={editForm.discountValue} onChange={(e) => setEditForm({ ...editForm, discountValue: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Payment</label>
+                <select value={editForm.paymentMethod} onChange={(e) => setEditForm({ ...editForm, paymentMethod: e.target.value })}>
+                  <option>Cash</option>
+                  <option>Card</option>
+                  <option>Split</option>
+                </select>
+              </div>
+            </div>
+
+            {(editForm.paymentMethod === 'Card' || editForm.paymentMethod === 'Split') && (
+              <div className="form-grid-3">
+                <div className="form-group">
+                  <label>Card Type</label>
+                  <select value={editForm.cardType} onChange={(e) => setEditForm({ ...editForm, cardType: e.target.value })}>
+                    <option>Visa</option>
+                    <option>Mastercard</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Last4</label>
+                  <input value={editForm.last4} onChange={(e) => setEditForm({ ...editForm, last4: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Ref</label>
+                  <input value={editForm.ref} onChange={(e) => setEditForm({ ...editForm, ref: e.target.value })} />
+                </div>
+              </div>
+            )}
+
+            {editForm.paymentMethod === 'Split' && (
+              <div className="form-grid-3">
+                <div className="form-group">
+                  <label style={{ fontSize: 10 }}>Cash Amount</label>
+                  <input type="number" value={editForm.cashAmount} onChange={(e) => setEditForm({ ...editForm, cashAmount: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label style={{ fontSize: 10 }}>Card Amount</label>
+                  <input type="number" value={editForm.cardAmount} onChange={(e) => setEditForm({ ...editForm, cardAmount: e.target.value })} />
+                </div>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label>Staff</label>
+              <input value={editForm.staffName} onChange={(e) => setEditForm({ ...editForm, staffName: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label>Remarks</label>
+              <input value={editForm.remarks} onChange={(e) => setEditForm({ ...editForm, remarks: e.target.value })} />
+            </div>
+
+            <div className="summary-box" style={{ marginBottom: 12 }}>
+              <div className="summary-row"><span>New Total</span><span>{peso(editTotal)}</span></div>
+            </div>
+
+            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={submitEdit} disabled={savingEdit}>
+              {savingEdit ? 'Saving...' : 'Save Changes'}
+            </button>
           </div>
         </div>
       )}
