@@ -490,6 +490,85 @@ app.post('/api/products/:id/stock', requireRole('host', 'admin', 'store'), async
   }
 });
 
+app.post('/api/products/:id/transfer', requireRole('host', 'admin', 'store'), async (req, res) => {
+  const sourceProductId = Number(req.params.id);
+  const destinationStoreId = Number(req.body.destinationStoreId);
+  const quantity = Number(req.body.quantity);
+  if (!Number.isInteger(quantity) || quantity <= 0 || !Number.isInteger(destinationStoreId)) {
+    return res.status(400).json({ error: 'A destination store and positive whole-number quantity are required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const sourceResult = await client.query('SELECT * FROM products WHERE id = $1 FOR UPDATE', [sourceProductId]);
+    const source = sourceResult.rows[0];
+    if (!source) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Source product not found' });
+    }
+
+    const accessibleStoreIds = await getAccessibleStoreIds(req.user);
+    if (!accessibleStoreIds.includes(source.store_id) || !accessibleStoreIds.includes(destinationStoreId)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'No access to the source or destination store' });
+    }
+    if (source.store_id === destinationStoreId) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Choose a different destination store' });
+    }
+    if (source.current_quantity < quantity) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Insufficient stock', available_quantity: source.current_quantity });
+    }
+
+    const destinationResult = source.sku
+      ? await client.query('SELECT * FROM products WHERE store_id = $1 AND sku = $2 ORDER BY id LIMIT 1 FOR UPDATE', [destinationStoreId, source.sku])
+      : await client.query("SELECT * FROM products WHERE store_id = $1 AND LOWER(name) = LOWER($2) AND COALESCE(sku, '') = '' ORDER BY id LIMIT 1 FOR UPDATE", [destinationStoreId, source.name]);
+    let destination = destinationResult.rows[0];
+    const transferReference = `transfer:${Date.now()}:${source.id}:${destinationStoreId}`;
+    const sourcePrevious = source.current_quantity;
+    const sourceNext = sourcePrevious - quantity;
+    await client.query('UPDATE products SET current_quantity = $1 WHERE id = $2', [sourceNext, source.id]);
+
+    if (destination) {
+      const destinationPrevious = destination.current_quantity;
+      const destinationNext = destinationPrevious + quantity;
+      await client.query('UPDATE products SET current_quantity = $1 WHERE id = $2', [destinationNext, destination.id]);
+      await client.query(
+        `INSERT INTO inventory_audit (product_id, transaction_type, quantity_change, previous_quantity, new_quantity, reference_id)
+         VALUES ($1, 'TRANSFER_IN', $2, $3, $4, $5)`,
+        [destination.id, quantity, destinationPrevious, destinationNext, transferReference]
+      );
+    } else {
+      const inserted = await client.query(
+        `INSERT INTO products (name, sku, category, store_id, description, current_quantity, min_stock_level, unit_price, cost)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [source.name, source.sku, source.category, destinationStoreId, source.description, quantity, source.min_stock_level, source.unit_price, source.cost]
+      );
+      destination = inserted.rows[0];
+      await client.query(
+        `INSERT INTO inventory_audit (product_id, transaction_type, quantity_change, previous_quantity, new_quantity, reference_id)
+         VALUES ($1, 'TRANSFER_IN', $2, 0, $3, $4)`,
+        [destination.id, quantity, quantity, transferReference]
+      );
+    }
+
+    await client.query(
+      `INSERT INTO inventory_audit (product_id, transaction_type, quantity_change, previous_quantity, new_quantity, reference_id)
+       VALUES ($1, 'TRANSFER_OUT', $2, $3, $4, $5)`,
+      [source.id, -quantity, sourcePrevious, sourceNext, transferReference]
+    );
+    await client.query('COMMIT');
+    res.json({ message: 'Stock transferred', sourceProductId: source.id, destinationProductId: destination.id, quantity });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 // ---------- Sales ----------
 
 app.post('/api/sales', async (req, res) => {
@@ -588,7 +667,7 @@ app.get('/api/sales', async (req, res) => {
   try {
     const ids = await getAccessibleStoreIds(req.user);
     if (ids.length === 0) return res.json([]);
-    const { storeId, from, to } = req.query;
+    const { storeId, from, to, product } = req.query;
     let sql = `
       SELECT sa.*, p.name AS product_name, s.name AS store_name
       FROM sales sa
@@ -608,6 +687,10 @@ app.get('/api/sales', async (req, res) => {
     if (to) {
       params.push(to);
       sql += ` AND sa.sale_date::date <= $${params.length}`;
+    }
+    if (product) {
+      params.push(`%${product}%`);
+      sql += ` AND p.name ILIKE $${params.length}`;
     }
     sql += ' ORDER BY sa.sale_date DESC';
     const result = await pool.query(sql, params);
@@ -770,7 +853,14 @@ app.get('/api/audit', requireRole('host'), async (req, res) => {
 
 app.get('/api/dashboard', async (req, res) => {
   try {
-    const ids = await getAccessibleStoreIds(req.user);
+    const accessibleIds = await getAccessibleStoreIds(req.user);
+    const requestedStoreId = req.query.storeId;
+    if (requestedStoreId && requestedStoreId !== 'All' && !accessibleIds.includes(Number(requestedStoreId))) {
+      return res.status(403).json({ error: 'No access to this store' });
+    }
+    const ids = requestedStoreId && requestedStoreId !== 'All'
+      ? accessibleIds.filter((id) => id === Number(requestedStoreId))
+      : accessibleIds;
     if (ids.length === 0) {
       return res.json({
         total_stores: 0, total_products: 0,

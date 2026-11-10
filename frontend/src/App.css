@@ -711,6 +711,11 @@ tbody tr:hover {
   color: #fff;
 }
 
+.badge-card {
+  background: #dc2626;
+  color: #fff;
+}
+
 .badge-low {
   background: #fee2e2;
   color: #dc2626;
@@ -914,6 +919,198 @@ tbody tr:hover {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-bottom: 12px;
+}
+
+/* Keep dense transaction tables usable on phone-sized screens. */
+.sales-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    gap: 8px;
+    padding: 0 8px;
+  }
+
+  .topbar-user {
+    min-width: 0;
+    max-width: 42vw;
+    gap: 5px;
+    padding: 0 8px;
+    font-size: 11px;
+    overflow: hidden;
+  }
+
+  .topbar-user > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .topbar-brand {
+    font-size: 12px;
+  }
+
+  .page-head {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .page-title {
+    font-size: 17px;
+  }
+
+  .stat-card {
+    padding: 10px;
+    border-radius: 12px;
+    min-width: 0;
+  }
+
+  .stats-grid {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .stat-label {
+    font-size: 8px;
+    letter-spacing: 0.06em;
+  }
+
+  .stat-value {
+    font-size: 16px;
+    overflow-wrap: anywhere;
+  }
+
+  .panel {
+    padding: 8px;
+    border-radius: 14px;
+  }
+
+  .sales-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .sales-table-wrapper table {
+    min-width: 0;
+    table-layout: fixed;
+    font-size: 9px;
+  }
+
+  .sales-table-wrapper thead th,
+  .sales-table-wrapper tbody td,
+  .sales-table-wrapper tfoot td {
+    padding: 6px 3px;
+    overflow-wrap: anywhere;
+  }
+
+  .sales-table-wrapper th:nth-child(1),
+  .sales-table-wrapper td:nth-child(1) { width: 16%; }
+  .sales-table-wrapper th:nth-child(2),
+  .sales-table-wrapper td:nth-child(2) { width: 11%; }
+  .sales-table-wrapper th:nth-child(3),
+  .sales-table-wrapper td:nth-child(3) { width: 19%; }
+  .sales-table-wrapper th:nth-child(4),
+  .sales-table-wrapper td:nth-child(4) { width: 7%; }
+  .sales-table-wrapper th:nth-child(5),
+  .sales-table-wrapper td:nth-child(5) { width: 11%; }
+  .sales-table-wrapper th:nth-child(6),
+  .sales-table-wrapper td:nth-child(6) { width: 12%; }
+  .sales-table-wrapper th:nth-child(7),
+  .sales-table-wrapper td:nth-child(7) { width: 10%; }
+  .sales-table-wrapper th:nth-child(8),
+  .sales-table-wrapper td:nth-child(8) { width: 14%; }
+
+  .sales-table-wrapper th:nth-child(2),
+  .sales-table-wrapper th:nth-child(4),
+  .sales-table-wrapper th:nth-child(6),
+  .sales-table-wrapper th:nth-child(7) {
+    font-size: 0;
+  }
+
+  .sales-table-wrapper th:nth-child(2)::after { content: 'Store'; font-size: 7px; }
+  .sales-table-wrapper th:nth-child(4)::after { content: 'Qty'; font-size: 7px; }
+  .sales-table-wrapper th:nth-child(6)::after { content: 'Pay'; font-size: 7px; }
+  .sales-table-wrapper th:nth-child(7)::after { content: 'Staff'; font-size: 7px; }
+
+  .sales-actions-cell {
+    padding-right: 2px !important;
+  }
+
+  .sales-actions .btn {
+    width: 22px;
+    min-width: 22px;
+    height: 24px;
+    padding: 0;
+    justify-content: center;
+    font-size: 10px;
+  }
+
+  .history-panel .table-wrapper {
+    overflow-x: visible;
+  }
+
+  .history-table {
+    min-width: 0;
+    table-layout: fixed;
+    font-size: 10px;
+  }
+
+  .history-table thead th,
+  .history-table tbody td,
+  .history-table tfoot td {
+    padding: 7px 4px;
+    overflow-wrap: anywhere;
+  }
+
+  .history-sales .history-table th:nth-child(1),
+  .history-sales .history-table td:nth-child(1) { width: 19%; }
+  .history-sales .history-table th:nth-child(2),
+  .history-sales .history-table td:nth-child(2) { width: 14%; }
+  .history-sales .history-table th:nth-child(3),
+  .history-sales .history-table td:nth-child(3) { width: 20%; }
+  .history-sales .history-table th:nth-child(4),
+  .history-sales .history-table td:nth-child(4) { width: 8%; }
+  .history-sales .history-table th:nth-child(5),
+  .history-sales .history-table td:nth-child(5) { width: 13%; }
+  .history-sales .history-table th:nth-child(6),
+  .history-sales .history-table td:nth-child(6) { width: 12%; }
+  .history-sales .history-table th:nth-child(7),
+  .history-sales .history-table td:nth-child(7) { width: 14%; }
+
+  .history-sales .history-table th:nth-child(2),
+  .history-sales .history-table th:nth-child(6),
+  .history-sales .history-table th:nth-child(7) {
+    font-size: 0;
+  }
+
+  .history-sales .history-table th:nth-child(2)::after { content: 'Store'; font-size: 8px; }
+  .history-sales .history-table th:nth-child(6)::after { content: 'Cashier'; font-size: 8px; }
+  .history-sales .history-table th:nth-child(7)::after { content: 'Remarks'; font-size: 8px; }
+
+  .history-inventory .history-table {
+    font-size: 9px;
+  }
+
+  .history-inventory .history-table thead th,
+  .history-inventory .history-table tbody td {
+    padding: 6px 3px;
+  }
+
+  .history-inventory .history-table th:nth-child(1),
+  .history-inventory .history-table td:nth-child(1) { width: 19%; }
+  .history-inventory .history-table th:nth-child(2),
+  .history-inventory .history-table td:nth-child(2) { width: 13%; }
+  .history-inventory .history-table th:nth-child(3),
+  .history-inventory .history-table td:nth-child(3) { width: 19%; }
+  .history-inventory .history-table th:nth-child(4),
+  .history-inventory .history-table td:nth-child(4) { width: 17%; }
+  .history-inventory .history-table th:nth-child(5),
+  .history-inventory .history-table td:nth-child(5) { width: 10%; }
+  .history-inventory .history-table th:nth-child(6),
+  .history-inventory .history-table td:nth-child(6),
+  .history-inventory .history-table th:nth-child(7),
+  .history-inventory .history-table td:nth-child(7) { width: 11%; }
 }
 
 @keyframes spin {

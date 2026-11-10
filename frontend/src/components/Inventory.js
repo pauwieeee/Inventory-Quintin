@@ -14,12 +14,17 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [savingProduct, setSavingProduct] = useState(false);
+  const [transferModal, setTransferModal] = useState(null);
+  const [transferQty, setTransferQty] = useState(1);
+  const [transferring, setTransferring] = useState(false);
 
   const [stockModal, setStockModal] = useState(null); // {type, product, qty}
   const [newCategory, setNewCategory] = useState('');
 
   const canEdit = ['host', 'admin', 'store'].includes(authUser.role);
   const isHost = authUser.role === 'host';
+  const canSeeCost = authUser.role !== 'staff';
 
   const load = () => {
     setLoading(true);
@@ -63,7 +68,8 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
   };
 
   const saveProduct = async () => {
-    if (!form.name.trim()) return;
+    if (!form.name.trim() || savingProduct) return;
+    setSavingProduct(true);
     try {
       if (editing) {
         await axios.put(`${API_BASE}/products/${editing.id}`, {
@@ -80,9 +86,35 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
       }
       setShowForm(false);
       refresh();
-      load();
+      await load();
     } catch (err) {
       setError('Failed to save product: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setSavingProduct(false);
+    }
+  };
+
+  const transferStock = async () => {
+    if (!transferModal || transferring) return;
+    const qty = Number(transferQty);
+    if (!Number.isInteger(qty) || qty <= 0 || qty > Number(transferModal.product.current_quantity)) {
+      setError('Enter a whole number no greater than the available stock');
+      return;
+    }
+    setTransferring(true);
+    try {
+      await axios.post(`${API_BASE}/products/${transferModal.product.id}/transfer`, {
+        destinationStoreId: Number(transferModal.destinationStoreId), quantity: qty
+      });
+      setSuccessMsg('Stock transferred');
+      setTransferModal(null);
+      setTransferQty(1);
+      refresh();
+      await load();
+    } catch (err) {
+      setError('Failed to transfer stock: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setTransferring(false);
     }
   };
 
@@ -159,7 +191,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
         </select>
       </div>
 
-      {(authUser.role === 'host' || authUser.role === 'admin') && (
+      {canSeeCost && (authUser.role === 'host' || authUser.role === 'admin') && (
       <div
         className="inventory-totals-box"
         style={{
@@ -224,14 +256,14 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
                   <th>Category</th>
                   <th>Store</th>
                   <th className="text-right">Price</th>
-                  <th className="text-right">Cost</th>
+                  {canSeeCost && <th className="text-right">Cost</th>}
                   <th className="text-right">Stock</th>
                   {canEdit && <th className="text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {products.length === 0 ? (
-                  <tr><td colSpan={canEdit ? 8 : 7} className="empty-state">No products found.</td></tr>
+                  <tr><td colSpan={(canEdit ? 7 : 6) + (canSeeCost ? 1 : 0)} className="empty-state">No products found.</td></tr>
                 ) : (
                   products.map((p) => {
                     const low = p.current_quantity <= p.min_stock_level;
@@ -242,7 +274,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
                         <td>{p.category}</td>
                         <td>{p.store_name}</td>
                         <td className="text-right">₱{Number(p.unit_price).toLocaleString()}</td>
-                        <td className="text-right">₱{Number(p.cost).toLocaleString()}</td>
+                        {canSeeCost && <td className="text-right">₱{Number(p.cost).toLocaleString()}</td>}
                         <td className="text-right"><b>{p.current_quantity}</b></td>
                         {canEdit && (
                           <td className="text-right">
@@ -251,6 +283,13 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
                               <button className="btn btn-green btn-sm" onClick={() => setStockModal({ type: 'in', product: p, qty: 1 })}>Stock-in</button>
                               <button className="btn btn-orange btn-sm" onClick={() => setStockModal({ type: 'out', product: p, qty: 1 })}>Stock-out</button>
                               <button className="btn btn-black btn-sm" onClick={() => setStockModal({ type: 'adjust', product: p, qty: p.current_quantity })}>Adjust</button>
+                              {stores.some((store) => Number(store.id) !== Number(p.store_id)) && (
+                                <button className="btn btn-outline btn-sm" onClick={() => {
+                                  const destination = stores.find((store) => Number(store.id) !== Number(p.store_id));
+                                  setTransferModal({ product: p, destinationStoreId: String(destination?.id || '') });
+                                  setTransferQty(1);
+                                }}>Transfer</button>
+                              )}
                               <button className="btn btn-outline btn-sm" onClick={() => deleteProduct(p)}>🗑</button>
                             </div>
                           </td>
@@ -310,8 +349,8 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
                 {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
-            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={saveProduct}>
-              Save Product
+            <button className="btn btn-black" style={{ width: '100%', justifyContent: 'center' }} onClick={saveProduct} disabled={savingProduct || !form.name.trim()}>
+              {savingProduct ? 'Saving...' : 'Save Product'}
             </button>
           </div>
         </div>
@@ -342,6 +381,36 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
                 onClick={confirmStock}
               >
                 Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {transferModal && (
+        <div className="modal-overlay" onClick={() => !transferring && setTransferModal(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title" style={{ marginBottom: 12 }}>Transfer Stock • {transferModal.product.name}</div>
+            <div className="summary-box" style={{ marginBottom: 12 }}>
+              <div className="summary-row"><span>From</span><span>{transferModal.product.store_name}</span></div>
+              <div className="summary-row"><span>Available</span><span>{transferModal.product.current_quantity}</span></div>
+            </div>
+            <div className="form-group">
+              <label>Destination Store</label>
+              <select value={transferModal.destinationStoreId} onChange={(e) => setTransferModal({ ...transferModal, destinationStoreId: e.target.value })}>
+                {stores.filter((store) => Number(store.id) !== Number(transferModal.product.store_id)).map((store) => (
+                  <option key={store.id} value={store.id}>{store.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Quantity</label>
+              <input type="number" min="1" max={transferModal.product.current_quantity} step="1" value={transferQty} onChange={(e) => setTransferQty(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setTransferModal(null)} disabled={transferring}>Cancel</button>
+              <button className="btn btn-black" style={{ flex: 1, justifyContent: 'center' }} onClick={transferStock} disabled={transferring}>
+                {transferring ? 'Transferring...' : 'Transfer Stock'}
               </button>
             </div>
           </div>

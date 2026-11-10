@@ -6,16 +6,17 @@ function peso(n) {
   return `₱${Number(n || 0).toLocaleString()}`;
 }
 
-function Dashboard({ authUser, setError, refreshTick }) {
+function Dashboard({ authUser, stores, setError, refreshTick }) {
   const [stats, setStats] = useState(null);
   const [recentSales, setRecentSales] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [storeFilter, setStoreFilter] = useState('All');
 
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      axios.get(`${API_BASE}/dashboard`),
-      axios.get(`${API_BASE}/sales`)
+      axios.get(`${API_BASE}/dashboard`, { params: storeFilter === 'All' ? {} : { storeId: storeFilter } }),
+      axios.get(`${API_BASE}/sales`, { params: storeFilter === 'All' ? {} : { storeId: storeFilter } })
     ])
       .then(([d, s]) => {
         setStats(d.data);
@@ -23,7 +24,7 @@ function Dashboard({ authUser, setError, refreshTick }) {
       })
       .catch((err) => setError('Failed to load dashboard: ' + (err.response?.data?.error || err.message)))
       .finally(() => setLoading(false));
-  }, [refreshTick, setError]);
+  }, [refreshTick, setError, storeFilter]);
 
   if (loading || !stats) {
     return (
@@ -40,11 +41,11 @@ function Dashboard({ authUser, setError, refreshTick }) {
   const cards = [
     { label: 'Daily Cash', value: peso(stats.dailyCash), sub: 'Today cash' },
     { label: 'Daily Card', value: peso(stats.dailyCard), sub: 'Today card' },
-    { label: 'Daily Sales', value: stats.dailySalesCount, sub: 'Orders today' },
+    { label: 'Daily Sales', value: peso(stats.dailyCash + stats.dailyCard), sub: `${stats.dailySalesCount} orders today` },
     ...(isHost || isAdmin ? [{ label: 'Daily Discount', value: peso(stats.dailyDiscount), sub: 'Discount given', gray: true }] : []),
     { label: 'Monthly Cash', value: peso(stats.monthlyCash), sub: 'Month cash', dark: !(isHost || isAdmin) ? false : true },
     { label: 'Monthly Card', value: peso(stats.monthlyCard), sub: 'Month card', dark: true },
-    { label: 'Monthly Sales', value: stats.monthlySalesCount, sub: 'Orders month', dark: true },
+    { label: 'Monthly Sales', value: peso(stats.monthlyCash + stats.monthlyCard), sub: `${stats.monthlySalesCount} orders this month`, dark: true },
     ...(isHost || isAdmin ? [{ label: 'Monthly Discount', value: peso(stats.monthlyDiscount), sub: 'Discount month', gray: true }] : [])
   ];
 
@@ -60,6 +61,15 @@ function Dashboard({ authUser, setError, refreshTick }) {
           {isHost ? `${stats.total_stores} stores` : isAdmin ? `${stats.total_stores} stores` : `${stats.total_products} products`}
         </div>
       </div>
+
+      {isHost && (
+        <div className="filter-row">
+          <select className="pill-select" value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)} aria-label="Filter dashboard by store">
+            <option value="All">All Stores</option>
+            {stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
+          </select>
+        </div>
+      )}
 
       <div className={`stats-grid ${cards.length > 6 ? 'cols-4' : 'cols-3'}`}>
         {cards.map((c, i) => (

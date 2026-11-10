@@ -260,7 +260,7 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
         {loading ? (
           <div className="spinner-container"><div className="spinner"></div></div>
         ) : (
-          <div className="table-wrapper">
+          <div className="table-wrapper sales-table-wrapper">
             <table>
               <thead>
                 <tr>
@@ -286,15 +286,15 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
                       <td className="text-right">{s.quantity_sold}</td>
                       <td className="text-right"><b>{peso(s.total)}</b></td>
                       <td>
-                        <span className="badge badge-black">{s.payment_method}</span>
+                        <span className={`badge ${s.payment_method === 'Card' ? 'badge-card' : 'badge-black'}`}>{s.payment_method}</span>
                         {Number(s.discount_amount) > 0 && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.6 }}>-{s.discount_amount}</span>}
                       </td>
                       <td>{s.staff_name}</td>
                       {isHost && (
-                        <td className="text-right">
-                          <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                            <button className="btn btn-outline btn-sm" onClick={() => openEdit(s)}>✎ Edit</button>
-                            <button className="btn btn-outline btn-sm" onClick={() => requestDeleteSale(s)}>🗑</button>
+                        <td className="text-right sales-actions-cell">
+                          <div className="sales-actions">
+                            <button className="btn btn-outline btn-sm" aria-label="Edit sale" onClick={() => openEdit(s)}>✎</button>
+                            <button className="btn btn-outline btn-sm" aria-label="Delete sale" onClick={() => requestDeleteSale(s)}>🗑</button>
                           </div>
                         </td>
                       )}

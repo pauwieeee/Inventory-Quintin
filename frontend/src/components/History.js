@@ -11,6 +11,9 @@ const TX_LABELS = {
   STOCK_OUT: 'Stock-out',
   ADJUST: 'Adjust',
   SALE: 'Sale',
+  TRANSFER_IN: 'Transfer In',
+  TRANSFER_OUT: 'Transfer Out',
+  SALE_EDITED: 'Sale Edited',
   SALE_DELETED: 'Sale Deleted'
 };
 
@@ -23,6 +26,7 @@ function History({ authUser, setError, refreshTick }) {
   const [loading, setLoading] = useState(true);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [productSearch, setProductSearch] = useState('');
 
   const effectiveTab = tab === 'inventory' && !isHost ? 'sales' : tab;
 
@@ -31,15 +35,17 @@ function History({ authUser, setError, refreshTick }) {
     const params = {};
     if (from) params.from = from;
     if (to) params.to = to;
+    if (effectiveTab === 'sales' && productSearch.trim()) params.product = productSearch.trim();
     const url = effectiveTab === 'sales' ? `${API_BASE}/sales` : `${API_BASE}/audit`;
     axios.get(url, { params })
       .then((r) => (effectiveTab === 'sales' ? setSales(r.data) : setAudit(r.data)))
       .catch((err) => setError('Failed to load history: ' + (err.response?.data?.error || err.message)))
       .finally(() => setLoading(false));
-  }, [refreshTick, from, to, effectiveTab, setError]);
+  }, [refreshTick, from, to, effectiveTab, productSearch, setError]);
 
-  const totalQty = sales.reduce((sum, s) => sum + Number(s.quantity_sold), 0);
-  const totalAmount = sales.reduce((sum, s) => sum + Number(s.total), 0);
+  const filteredSales = sales;
+  const filteredTotalQty = filteredSales.reduce((sum, sale) => sum + Number(sale.quantity_sold), 0);
+  const filteredTotalAmount = filteredSales.reduce((sum, sale) => sum + Number(sale.total), 0);
 
   return (
     <div>
@@ -74,29 +80,45 @@ function History({ authUser, setError, refreshTick }) {
         )}
       </div>
 
-      {effectiveTab === 'sales' && !loading && sales.length > 0 && (
+      {effectiveTab === 'sales' && (
+        <div className="filter-row">
+          <div className="search-box">
+            <span aria-hidden="true">🔍</span>
+            <input
+              type="search"
+              placeholder="Search product in history..."
+              aria-label="Search history by product"
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+            />
+          </div>
+          {productSearch && <button className="btn btn-outline btn-sm" onClick={() => setProductSearch('')}>Clear search</button>}
+        </div>
+      )}
+
+      {effectiveTab === 'sales' && !loading && filteredSales.length > 0 && (
         <div className="stats-grid cols-3" style={{ marginBottom: 16 }}>
           <div className="stat-card dark">
             <div className="stat-label">Transactions</div>
-            <div className="stat-value">{sales.length}</div>
+            <div className="stat-value">{filteredSales.length}</div>
           </div>
           <div className="stat-card dark">
             <div className="stat-label">Total Quantity Sold</div>
-            <div className="stat-value">{totalQty}</div>
+            <div className="stat-value">{filteredTotalQty}</div>
           </div>
           <div className="stat-card dark">
             <div className="stat-label">Total Sales Amount</div>
-            <div className="stat-value">{peso(totalAmount)}</div>
+            <div className="stat-value">{peso(filteredTotalAmount)}</div>
           </div>
         </div>
       )}
 
-      <div className="panel">
+      <div className={`panel history-panel history-${effectiveTab}`}>
         {loading ? (
           <div className="spinner-container"><div className="spinner"></div></div>
         ) : effectiveTab === 'sales' ? (
           <div className="table-wrapper">
-            <table>
+            <table className="history-table">
               <thead>
                 <tr>
                   <th>Date</th>
@@ -109,10 +131,10 @@ function History({ authUser, setError, refreshTick }) {
                 </tr>
               </thead>
               <tbody>
-                {sales.length === 0 ? (
-                  <tr><td colSpan="7" className="empty-state">No history for this range.</td></tr>
+                {filteredSales.length === 0 ? (
+                  <tr><td colSpan="7" className="empty-state">{sales.length === 0 ? 'No history for this range.' : 'No products match your search.'}</td></tr>
                 ) : (
-                  sales.map((s) => (
+                  filteredSales.map((s) => (
                     <tr key={s.id}>
                       <td>{new Date(s.sale_date).toLocaleString()}</td>
                       <td>{s.store_name}</td>
@@ -125,12 +147,12 @@ function History({ authUser, setError, refreshTick }) {
                   ))
                 )}
               </tbody>
-              {sales.length > 0 && (
+              {filteredSales.length > 0 && (
                 <tfoot>
                   <tr style={{ background: '#fafafa', fontWeight: 700 }}>
                     <td colSpan="3">Total</td>
-                    <td className="text-right">{totalQty}</td>
-                    <td className="text-right">{peso(totalAmount)}</td>
+                    <td className="text-right">{filteredTotalQty}</td>
+                    <td className="text-right">{peso(filteredTotalAmount)}</td>
                     <td colSpan="2"></td>
                   </tr>
                 </tfoot>
@@ -139,7 +161,7 @@ function History({ authUser, setError, refreshTick }) {
           </div>
         ) : (
           <div className="table-wrapper">
-            <table>
+            <table className="history-table">
               <thead>
                 <tr>
                   <th>Date</th>
