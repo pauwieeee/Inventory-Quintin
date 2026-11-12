@@ -526,7 +526,6 @@ app.post('/api/products/:id/transfer', requireRole('host', 'admin', 'store'), as
       ? await client.query('SELECT * FROM products WHERE store_id = $1 AND sku = $2 ORDER BY id LIMIT 1 FOR UPDATE', [destinationStoreId, source.sku])
       : await client.query("SELECT * FROM products WHERE store_id = $1 AND LOWER(name) = LOWER($2) AND COALESCE(sku, '') = '' ORDER BY id LIMIT 1 FOR UPDATE", [destinationStoreId, source.name]);
     let destination = destinationResult.rows[0];
-    const transferReference = `transfer:${Date.now()}:${source.id}:${destinationStoreId}`;
     const sourcePrevious = source.current_quantity;
     const sourceNext = sourcePrevious - quantity;
     await client.query('UPDATE products SET current_quantity = $1 WHERE id = $2', [sourceNext, source.id]);
@@ -536,9 +535,9 @@ app.post('/api/products/:id/transfer', requireRole('host', 'admin', 'store'), as
       const destinationNext = destinationPrevious + quantity;
       await client.query('UPDATE products SET current_quantity = $1 WHERE id = $2', [destinationNext, destination.id]);
       await client.query(
-        `INSERT INTO inventory_audit (product_id, transaction_type, quantity_change, previous_quantity, new_quantity, reference_id)
-         VALUES ($1, 'TRANSFER_IN', $2, $3, $4, $5)`,
-        [destination.id, quantity, destinationPrevious, destinationNext, transferReference]
+        `INSERT INTO inventory_audit (product_id, transaction_type, quantity_change, previous_quantity, new_quantity)
+         VALUES ($1, 'TRANSFER_IN', $2, $3, $4)`,
+        [destination.id, quantity, destinationPrevious, destinationNext]
       );
     } else {
       const inserted = await client.query(
@@ -548,16 +547,16 @@ app.post('/api/products/:id/transfer', requireRole('host', 'admin', 'store'), as
       );
       destination = inserted.rows[0];
       await client.query(
-        `INSERT INTO inventory_audit (product_id, transaction_type, quantity_change, previous_quantity, new_quantity, reference_id)
-         VALUES ($1, 'TRANSFER_IN', $2, 0, $3, $4)`,
-        [destination.id, quantity, quantity, transferReference]
+        `INSERT INTO inventory_audit (product_id, transaction_type, quantity_change, previous_quantity, new_quantity)
+         VALUES ($1, 'TRANSFER_IN', $2, 0, $3)`,
+        [destination.id, quantity, quantity]
       );
     }
 
     await client.query(
-      `INSERT INTO inventory_audit (product_id, transaction_type, quantity_change, previous_quantity, new_quantity, reference_id)
-       VALUES ($1, 'TRANSFER_OUT', $2, $3, $4, $5)`,
-      [source.id, -quantity, sourcePrevious, sourceNext, transferReference]
+      `INSERT INTO inventory_audit (product_id, transaction_type, quantity_change, previous_quantity, new_quantity)
+       VALUES ($1, 'TRANSFER_OUT', $2, $3, $4)`,
+      [source.id, -quantity, sourcePrevious, sourceNext]
     );
     await client.query('COMMIT');
     res.json({ message: 'Stock transferred', sourceProductId: source.id, destinationProductId: destination.id, quantity });
