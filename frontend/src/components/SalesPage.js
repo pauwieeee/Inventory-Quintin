@@ -26,6 +26,7 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
 
   const isScoped = authUser.role === 'store' || authUser.role === 'staff';
   const isHost = authUser.role === 'host';
+  const canManageSales = ['host', 'admin', 'store', 'staff'].includes(authUser.role);
   const canFilterStore = authUser.role !== 'staff';
 
   const [storeFilter, setStoreFilter] = useState('All');
@@ -271,12 +272,12 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
                   <th className="text-right">Total</th>
                   <th>Payment</th>
                   <th>Staff</th>
-                  {isHost && <th className="text-right">Actions</th>}
+                  {canManageSales && <th className="text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {sales.length === 0 ? (
-                  <tr><td colSpan={isHost ? 8 : 7} className="empty-state">No sales recorded yet.</td></tr>
+                  <tr><td colSpan={canManageSales ? 8 : 7} className="empty-state">No sales recorded yet.</td></tr>
                 ) : (
                   sales.map((s) => (
                     <tr key={s.id}>
@@ -290,7 +291,7 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
                         {Number(s.discount_amount) > 0 && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.6 }}>-{s.discount_amount}</span>}
                       </td>
                       <td>{s.staff_name}</td>
-                      {isHost && (
+                      {canManageSales && (
                         <td className="text-right sales-actions-cell">
                           <div className="sales-actions">
                             <button className="btn btn-outline btn-sm" aria-label="Edit sale" onClick={() => openEdit(s)}>✎</button>
@@ -308,7 +309,7 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
                     <td colSpan="3">Total</td>
                     <td className="text-right">{totalQty}</td>
                     <td className="text-right">{peso(totalAmount)}</td>
-                    <td colSpan={isHost ? 3 : 2}></td>
+                    <td colSpan={canManageSales ? 3 : 2}></td>
                   </tr>
                 </tfoot>
               )}

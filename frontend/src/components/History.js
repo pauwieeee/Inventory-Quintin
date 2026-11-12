@@ -17,8 +17,9 @@ const TX_LABELS = {
   SALE_DELETED: 'Sale Deleted'
 };
 
-function History({ authUser, setError, refreshTick }) {
+function History({ authUser, stores = [], setError, refreshTick }) {
   const isHost = authUser?.role === 'host';
+  const canFilterStore = ['host', 'admin'].includes(authUser?.role) && stores.length > 1;
   const [tab, setTab] = useState('sales'); // 'sales' | 'inventory'
 
   const [sales, setSales] = useState([]);
@@ -27,6 +28,7 @@ function History({ authUser, setError, refreshTick }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [productSearch, setProductSearch] = useState('');
+  const [storeFilter, setStoreFilter] = useState('All');
 
   const effectiveTab = tab === 'inventory' && !isHost ? 'sales' : tab;
 
@@ -35,13 +37,14 @@ function History({ authUser, setError, refreshTick }) {
     const params = {};
     if (from) params.from = from;
     if (to) params.to = to;
-    if (effectiveTab === 'sales' && productSearch.trim()) params.product = productSearch.trim();
+    if (canFilterStore && storeFilter !== 'All') params.storeId = storeFilter;
+    if (productSearch.trim()) params.product = productSearch.trim();
     const url = effectiveTab === 'sales' ? `${API_BASE}/sales` : `${API_BASE}/audit`;
     axios.get(url, { params })
       .then((r) => (effectiveTab === 'sales' ? setSales(r.data) : setAudit(r.data)))
       .catch((err) => setError('Failed to load history: ' + (err.response?.data?.error || err.message)))
       .finally(() => setLoading(false));
-  }, [refreshTick, from, to, effectiveTab, productSearch, setError]);
+  }, [refreshTick, from, to, effectiveTab, productSearch, canFilterStore, storeFilter, setError]);
 
   const filteredSales = sales;
   const filteredTotalQty = filteredSales.reduce((sum, sale) => sum + Number(sale.quantity_sold), 0);
@@ -80,21 +83,28 @@ function History({ authUser, setError, refreshTick }) {
         )}
       </div>
 
-      {effectiveTab === 'sales' && (
+      {canFilterStore && (
         <div className="filter-row">
+          <select className="pill-select" value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)} aria-label="Filter history by store">
+            <option value="All">All Stores</option>
+            {stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      <div className="filter-row">
           <div className="search-box">
             <span aria-hidden="true">🔍</span>
             <input
               type="search"
-              placeholder="Search product in history..."
-              aria-label="Search history by product"
+              placeholder={`Search product in ${effectiveTab === 'sales' ? 'sales' : 'inventory'} log...`}
+              aria-label={`Search ${effectiveTab} log by product`}
               value={productSearch}
               onChange={(e) => setProductSearch(e.target.value)}
             />
           </div>
           {productSearch && <button className="btn btn-outline btn-sm" onClick={() => setProductSearch('')}>Clear search</button>}
-        </div>
-      )}
+      </div>
 
       {effectiveTab === 'sales' && !loading && filteredSales.length > 0 && (
         <div className="stats-grid cols-3" style={{ marginBottom: 16 }}>
@@ -175,7 +185,7 @@ function History({ authUser, setError, refreshTick }) {
               </thead>
               <tbody>
                 {audit.length === 0 ? (
-                  <tr><td colSpan="7" className="empty-state">No inventory activity for this range.</td></tr>
+                  <tr><td colSpan="7" className="empty-state">{productSearch.trim() ? 'No inventory activity matches this product.' : 'No inventory activity for this range.'}</td></tr>
                 ) : (
                   audit.map((a) => (
                     <tr key={a.id}>

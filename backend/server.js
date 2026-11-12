@@ -667,6 +667,9 @@ app.get('/api/sales', async (req, res) => {
     const ids = await getAccessibleStoreIds(req.user);
     if (ids.length === 0) return res.json([]);
     const { storeId, from, to, product } = req.query;
+    if (storeId && storeId !== 'All' && !ids.includes(Number(storeId))) {
+      return res.status(403).json({ error: 'No access to this store' });
+    }
     let sql = `
       SELECT sa.*, p.name AS product_name, s.name AS store_name
       FROM sales sa
@@ -699,7 +702,7 @@ app.get('/api/sales', async (req, res) => {
   }
 });
 
-app.put('/api/sales/:id', requireRole('host'), async (req, res) => {
+app.put('/api/sales/:id', requireRole('host', 'admin', 'store', 'staff'), async (req, res) => {
   const { id } = req.params;
   const { qty, discountType, discountValue, paymentMethod, cashAmount, cardAmount, cardType, last4, ref, staffName, remarks } = req.body;
 
@@ -708,6 +711,7 @@ app.put('/api/sales/:id', requireRole('host'), async (req, res) => {
     return res.status(400).json({ error: 'A positive qty is required' });
   }
 
+  const accessibleStoreIds = await getAccessibleStoreIds(req.user);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -716,6 +720,10 @@ app.put('/api/sales/:id', requireRole('host'), async (req, res) => {
     if (!sale) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Sale not found' });
+    }
+    if (!accessibleStoreIds.includes(sale.store_id)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'No access to this sale' });
     }
 
     const productResult = await client.query('SELECT * FROM products WHERE id = $1 FOR UPDATE', [sale.product_id]);
@@ -775,8 +783,9 @@ app.put('/api/sales/:id', requireRole('host'), async (req, res) => {
   }
 });
 
-app.delete('/api/sales/:id', requireRole('host'), async (req, res) => {
+app.delete('/api/sales/:id', requireRole('host', 'admin', 'store', 'staff'), async (req, res) => {
   const { id } = req.params;
+  const accessibleStoreIds = await getAccessibleStoreIds(req.user);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -785,6 +794,10 @@ app.delete('/api/sales/:id', requireRole('host'), async (req, res) => {
     if (!sale) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Sale not found' });
+    }
+    if (!accessibleStoreIds.includes(sale.store_id)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'No access to this sale' });
     }
 
     const productResult = await client.query('SELECT * FROM products WHERE id = $1 FOR UPDATE', [sale.product_id]);
@@ -819,7 +832,10 @@ app.get('/api/audit', requireRole('host'), async (req, res) => {
   try {
     const ids = await getAccessibleStoreIds(req.user);
     if (ids.length === 0) return res.json([]);
-    const { storeId, from, to } = req.query;
+    const { storeId, from, to, product } = req.query;
+    if (storeId && storeId !== 'All' && !ids.includes(Number(storeId))) {
+      return res.status(403).json({ error: 'No access to this store' });
+    }
     let sql = `
       SELECT a.*, p.name AS product_name, p.store_id, s.name AS store_name
       FROM inventory_audit a
@@ -839,6 +855,10 @@ app.get('/api/audit', requireRole('host'), async (req, res) => {
     if (to) {
       params.push(to);
       sql += ` AND a.transaction_date::date <= $${params.length}`;
+    }
+    if (product) {
+      params.push(`%${product}%`);
+      sql += ` AND p.name ILIKE $${params.length}`;
     }
     sql += ' ORDER BY a.transaction_date DESC';
     const result = await pool.query(sql, params);
