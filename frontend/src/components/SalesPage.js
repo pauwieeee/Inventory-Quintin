@@ -237,22 +237,22 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
       )}
 
       {!loading && sales.length > 0 && (
-        <div className="stats-grid cols-4 sales-summary-grid" style={{ marginBottom: 16 }}>
-          <div className="stat-card dark sales-summary-card">
-            <div className="stat-label">Transactions</div>
-            <div className="stat-value">{sales.length}</div>
+        <div className="sales-metrics-grid" aria-label="Today's sales summary">
+          <div className="sales-metric-card">
+            <span className="sales-metric-label">Transactions</span>
+            <strong className="sales-metric-value">{sales.length}</strong>
           </div>
-          <div className="stat-card dark sales-summary-card">
-            <div className="stat-label">Total Quantity</div>
-            <div className="stat-value">{totalQty}</div>
+          <div className="sales-metric-card">
+            <span className="sales-metric-label">Total Quantity</span>
+            <strong className="sales-metric-value">{totalQty}</strong>
           </div>
-          <div className="stat-card dark sales-summary-card">
-            <div className="stat-label">Total Sales</div>
-            <div className="stat-value">{peso(totalAmount)}</div>
+          <div className="sales-metric-card">
+            <span className="sales-metric-label">Total Sales</span>
+            <strong className="sales-metric-value">{peso(totalAmount)}</strong>
           </div>
-          <div className="stat-card dark sales-summary-card">
-            <div className="stat-label">Cash / Card</div>
-            <div className="stat-value sales-summary-cash-card">{peso(totalCash)} / {peso(totalCard)}</div>
+          <div className="sales-metric-card">
+            <span className="sales-metric-label">Cash / Card</span>
+            <strong className="sales-metric-value sales-metric-cash-card">{peso(totalCash)} / {peso(totalCard)}</strong>
           </div>
         </div>
       )}
