@@ -237,22 +237,22 @@ function SalesPage({ authUser, stores, categories, setError, setSuccessMsg, refr
       )}
 
       {!loading && sales.length > 0 && (
-        <div className="stats-grid cols-4" style={{ marginBottom: 16 }}>
-          <div className="stat-card dark">
+        <div className="stats-grid cols-4 sales-summary-grid" style={{ marginBottom: 16 }}>
+          <div className="stat-card dark sales-summary-card">
             <div className="stat-label">Transactions</div>
             <div className="stat-value">{sales.length}</div>
           </div>
-          <div className="stat-card dark">
+          <div className="stat-card dark sales-summary-card">
             <div className="stat-label">Total Quantity</div>
             <div className="stat-value">{totalQty}</div>
           </div>
-          <div className="stat-card dark">
+          <div className="stat-card dark sales-summary-card">
             <div className="stat-label">Total Sales</div>
             <div className="stat-value">{peso(totalAmount)}</div>
           </div>
-          <div className="stat-card dark">
+          <div className="stat-card dark sales-summary-card">
             <div className="stat-label">Cash / Card</div>
-            <div className="stat-value" style={{ fontSize: 15 }}>{peso(totalCash)} / {peso(totalCard)}</div>
+            <div className="stat-value sales-summary-cash-card">{peso(totalCash)} / {peso(totalCard)}</div>
           </div>
         </div>
       )}
