@@ -9,6 +9,7 @@ import SalesPage from './components/SalesPage';
 import History from './components/History';
 import Report from './components/Report';
 import Team from './components/Team';
+import StockTransfer from './components/StockTransfer';
 
 export const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000/api';
 
@@ -148,7 +149,13 @@ function App() {
   const isHost = authUser.role === 'host';
   const isStaff = authUser.role === 'staff';
 
-  const navItems = isHost ? [...NAV_ITEMS, { key: 'team', label: 'Team', icon: '👥' }] : NAV_ITEMS;
+  const canTransferStock = ['host', 'admin'].includes(authUser.role) && stores.length > 1;
+  const navItems = [
+    ...NAV_ITEMS.slice(0, 3),
+    ...(canTransferStock ? [{ key: 'transfer', label: 'Stock Transfer', icon: '↔' }] : []),
+    ...NAV_ITEMS.slice(3),
+    ...(isHost ? [{ key: 'team', label: 'Team', icon: '👥' }] : [])
+  ];
 
   const sharedProps = {
     authUser, stores, categories,
@@ -241,6 +248,7 @@ function App() {
 
         {page === 'dashboard' && <Dashboard {...sharedProps} />}
         {page === 'inventory' && <Inventory {...sharedProps} />}
+        {page === 'transfer' && canTransferStock && <StockTransfer {...sharedProps} />}
         {page === 'sales' && <SalesPage {...sharedProps} />}
         {page === 'history' && <History {...sharedProps} />}
         {page === 'report' && <Report {...sharedProps} />}

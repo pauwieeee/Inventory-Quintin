@@ -15,10 +15,6 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [savingProduct, setSavingProduct] = useState(false);
-  const [transferModal, setTransferModal] = useState(null);
-  const [transferQty, setTransferQty] = useState(1);
-  const [transferring, setTransferring] = useState(false);
-
   const [stockModal, setStockModal] = useState(null); // {type, product, qty}
   const [newCategory, setNewCategory] = useState('');
 
@@ -94,30 +90,6 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
     }
   };
 
-  const transferStock = async () => {
-    if (!transferModal || transferring) return;
-    const qty = Number(transferQty);
-    if (!Number.isInteger(qty) || qty <= 0 || qty > Number(transferModal.product.current_quantity)) {
-      setError('Enter a whole number no greater than the available stock');
-      return;
-    }
-    setTransferring(true);
-    try {
-      await axios.post(`${API_BASE}/products/${transferModal.product.id}/transfer`, {
-        destinationStoreId: Number(transferModal.destinationStoreId), quantity: qty
-      });
-      setSuccessMsg('Stock transferred');
-      setTransferModal(null);
-      setTransferQty(1);
-      refresh();
-      await load();
-    } catch (err) {
-      setError('Failed to transfer stock: ' + (err.response?.data?.error || err.message));
-    } finally {
-      setTransferring(false);
-    }
-  };
-
   const deleteProduct = async (p) => {
     if (!window.confirm(`Delete "${p.name}"?`)) return;
     try {
@@ -178,7 +150,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
 
       <div className="filter-row">
         <div className="search-box">
-          <span>🔍</span>
+          <span>ðŸ”</span>
           <input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <select className="pill-select" value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}>
@@ -209,24 +181,24 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
           <b style={{ fontSize: 20 }}>{totals.totalQty.toLocaleString()}</b>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ opacity: 0.6, fontSize: 12 }}>Total Price (Price × Qty)</span>
-          <b style={{ fontSize: 20 }}>₱{totals.totalPrice.toLocaleString()}</b>
+          <span style={{ opacity: 0.6, fontSize: 12 }}>Total Price (Price Ã— Qty)</span>
+          <b style={{ fontSize: 20 }}>â‚±{totals.totalPrice.toLocaleString()}</b>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ opacity: 0.6, fontSize: 12 }}>Total Cost (Cost × Qty)</span>
-          <b style={{ fontSize: 20 }}>₱{totals.totalCost.toLocaleString()}</b>
+          <span style={{ opacity: 0.6, fontSize: 12 }}>Total Cost (Cost Ã— Qty)</span>
+          <b style={{ fontSize: 20 }}>â‚±{totals.totalCost.toLocaleString()}</b>
         </div>
       </div>
       )}
 
       {isHost && (
         <div className="panel">
-          <div className="panel-title">Category Management • Host Only</div>
+          <div className="panel-title">Category Management â€¢ Host Only</div>
           <div className="chip-row" style={{ marginBottom: 12 }}>
             {categories.map((c) => (
               <span key={c.id} className="chip-remove">
                 {c.name}
-                <button className="chip-x" onClick={() => removeCategory(c)}>✕</button>
+                <button className="chip-x" onClick={() => removeCategory(c)}>âœ•</button>
               </span>
             ))}
           </div>
@@ -273,8 +245,8 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
                         <td>{p.sku || '-'}</td>
                         <td>{p.category}</td>
                         <td>{p.store_name}</td>
-                        <td className="text-right">₱{Number(p.unit_price).toLocaleString()}</td>
-                        {canSeeCost && <td className="text-right">₱{Number(p.cost).toLocaleString()}</td>}
+                        <td className="text-right">â‚±{Number(p.unit_price).toLocaleString()}</td>
+                        {canSeeCost && <td className="text-right">â‚±{Number(p.cost).toLocaleString()}</td>}
                         <td className="text-right"><b>{p.current_quantity}</b></td>
                         {canEdit && (
                           <td className="text-right">
@@ -283,14 +255,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
                               <button className="btn btn-green btn-sm" onClick={() => setStockModal({ type: 'in', product: p, qty: 1 })}>Stock-in</button>
                               <button className="btn btn-orange btn-sm" onClick={() => setStockModal({ type: 'out', product: p, qty: 1 })}>Stock-out</button>
                               <button className="btn btn-black btn-sm" onClick={() => setStockModal({ type: 'adjust', product: p, qty: p.current_quantity })}>Adjust</button>
-                              {stores.some((store) => Number(store.id) !== Number(p.store_id)) && (
-                                <button className="btn btn-outline btn-sm" onClick={() => {
-                                  const destination = stores.find((store) => Number(store.id) !== Number(p.store_id));
-                                  setTransferModal({ product: p, destinationStoreId: String(destination?.id || '') });
-                                  setTransferQty(1);
-                                }}>Transfer</button>
-                              )}
-                              <button className="btn btn-outline btn-sm" onClick={() => deleteProduct(p)}>🗑</button>
+                              <button className="btn btn-outline btn-sm" onClick={() => deleteProduct(p)}>ðŸ—‘</button>
                             </div>
                           </td>
                         )}
@@ -309,7 +274,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
               <div className="modal-title">{editing ? 'Edit Product' : 'Add Product'}</div>
-              <button className="icon-btn" onClick={() => setShowForm(false)}>✕</button>
+              <button className="icon-btn" onClick={() => setShowForm(false)}>âœ•</button>
             </div>
             <div className="form-group">
               <label>Product Name</label>
@@ -327,11 +292,11 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
             </div>
             <div className="form-grid-3">
               <div className="form-group">
-                <label>Price ₱</label>
+                <label>Price â‚±</label>
                 <input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Cost ₱</label>
+                <label>Cost â‚±</label>
                 <input type="number" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
               </div>
               <div className="form-group">
@@ -360,7 +325,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
         <div className="modal-overlay" onClick={() => setStockModal(null)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title" style={{ marginBottom: 12 }}>
-              {stockModal.type === 'in' ? 'Stock-in' : stockModal.type === 'out' ? 'Stock-out' : 'Adjust Stock'} • {stockModal.product.name}
+              {stockModal.type === 'in' ? 'Stock-in' : stockModal.type === 'out' ? 'Stock-out' : 'Adjust Stock'} â€¢ {stockModal.product.name}
             </div>
             <div className="summary-box" style={{ marginBottom: 12 }}>
               <div className="summary-row"><span>Current Stock</span><span>{stockModal.product.current_quantity}</span></div>
@@ -387,35 +352,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
         </div>
       )}
 
-      {transferModal && (
-        <div className="modal-overlay" onClick={() => !transferring && setTransferModal(null)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title" style={{ marginBottom: 12 }}>Transfer Stock • {transferModal.product.name}</div>
-            <div className="summary-box" style={{ marginBottom: 12 }}>
-              <div className="summary-row"><span>From</span><span>{transferModal.product.store_name}</span></div>
-              <div className="summary-row"><span>Available</span><span>{transferModal.product.current_quantity}</span></div>
-            </div>
-            <div className="form-group">
-              <label>Destination Store</label>
-              <select value={transferModal.destinationStoreId} onChange={(e) => setTransferModal({ ...transferModal, destinationStoreId: e.target.value })}>
-                {stores.filter((store) => Number(store.id) !== Number(transferModal.product.store_id)).map((store) => (
-                  <option key={store.id} value={store.id}>{store.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Quantity</label>
-              <input type="number" min="1" max={transferModal.product.current_quantity} step="1" value={transferQty} onChange={(e) => setTransferQty(e.target.value)} />
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setTransferModal(null)} disabled={transferring}>Cancel</button>
-              <button className="btn btn-black" style={{ flex: 1, justifyContent: 'center' }} onClick={transferStock} disabled={transferring}>
-                {transferring ? 'Transferring...' : 'Transfer Stock'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

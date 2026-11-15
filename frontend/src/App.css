@@ -813,6 +813,30 @@ tbody tr:hover {
   gap: 10px;
 }
 
+.stock-transfer-panel {
+  max-width: 680px;
+}
+
+.stock-transfer-help {
+  margin: -4px 0 18px;
+  color: #666;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.stock-transfer-available {
+  margin: 0 0 12px;
+}
+
+.stock-transfer-quantity {
+  max-width: 220px;
+}
+
+.stock-transfer-submit {
+  min-width: 150px;
+  justify-content: center;
+}
+
 /* Banners */
 .banner {
   padding: 10px 16px;
@@ -1043,6 +1067,17 @@ tbody tr:hover {
   .panel {
     padding: 8px;
     border-radius: 14px;
+  }
+
+  .stock-transfer-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .stock-transfer-quantity,
+  .stock-transfer-submit {
+    width: 100%;
+    max-width: none;
   }
 
   .sales-table-wrapper {
