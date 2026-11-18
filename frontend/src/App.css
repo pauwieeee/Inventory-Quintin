@@ -712,6 +712,88 @@ body {
   overflow-x: auto;
 }
 
+.inventory-desktop-table {
+  display: block;
+}
+
+.inventory-mobile-list {
+  display: none;
+}
+
+.inventory-totals-box {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px 20px;
+  padding: 14px;
+  margin-bottom: 16px;
+  border: 1px solid #222;
+  border-radius: 16px;
+}
+
+.inventory-total-label {
+  color: #666;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.inventory-total-value {
+  font-size: 20px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.inventory-product-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.inventory-product-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 10px;
+  line-height: 1.35;
+}
+
+.inventory-product-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.inventory-product-details > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.inventory-product-details span {
+  color: #777;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.inventory-product-details b {
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.inventory-product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -1083,6 +1165,29 @@ tbody tr:hover {
   .panel {
     padding: 8px;
     border-radius: 14px;
+  }
+
+  .inventory-desktop-table {
+    display: none;
+  }
+
+  .inventory-mobile-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .inventory-totals-box {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 10px;
+    padding: 12px;
+  }
+
+  .inventory-total-label {
+    font-size: 10px;
+  }
+
+  .inventory-total-value {
+    font-size: 17px;
   }
 
   .stock-transfer-grid {

@@ -150,7 +150,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
 
       <div className="filter-row">
         <div className="search-box">
-          <span>ðŸ”</span>
+          <span aria-hidden="true">{'\u{1F50D}'}</span>
           <input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <select className="pill-select" value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}>
@@ -166,39 +166,30 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
       {canSeeCost && (authUser.role === 'host' || authUser.role === 'admin') && (
       <div
         className="inventory-totals-box"
-        style={{
-          border: '2px solid #000',
-          borderRadius: 16,
-          padding: 16,
-          marginBottom: 16,
-          display: 'flex',
-          gap: 32,
-          flexWrap: 'wrap'
-        }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ opacity: 0.6, fontSize: 12 }}>Total Quantity</span>
-          <b style={{ fontSize: 20 }}>{totals.totalQty.toLocaleString()}</b>
+          <span className="inventory-total-label">Total Quantity</span>
+          <b className="inventory-total-value">{totals.totalQty.toLocaleString()}</b>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ opacity: 0.6, fontSize: 12 }}>Total Price (Price Ã— Qty)</span>
-          <b style={{ fontSize: 20 }}>â‚±{totals.totalPrice.toLocaleString()}</b>
+          <span className="inventory-total-label">Total Price (Price x Qty)</span>
+          <b className="inventory-total-value">{'\u20B1'}{totals.totalPrice.toLocaleString()}</b>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ opacity: 0.6, fontSize: 12 }}>Total Cost (Cost Ã— Qty)</span>
-          <b style={{ fontSize: 20 }}>â‚±{totals.totalCost.toLocaleString()}</b>
+          <span className="inventory-total-label">Total Cost (Cost x Qty)</span>
+          <b className="inventory-total-value">{'\u20B1'}{totals.totalCost.toLocaleString()}</b>
         </div>
       </div>
       )}
 
       {isHost && (
         <div className="panel">
-          <div className="panel-title">Category Management â€¢ Host Only</div>
+          <div className="panel-title">Category Management {'\u2022'} Host Only</div>
           <div className="chip-row" style={{ marginBottom: 12 }}>
             {categories.map((c) => (
               <span key={c.id} className="chip-remove">
                 {c.name}
-                <button className="chip-x" onClick={() => removeCategory(c)}>âœ•</button>
+                <button className="chip-x" aria-label={`Remove ${c.name}`} onClick={() => removeCategory(c)}>{'\u00D7'}</button>
               </span>
             ))}
           </div>
@@ -219,7 +210,8 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
         {loading ? (
           <div className="spinner-container"><div className="spinner"></div></div>
         ) : (
-          <div className="table-wrapper">
+          <>
+          <div className="table-wrapper inventory-desktop-table">
             <table>
               <thead>
                 <tr>
@@ -245,8 +237,8 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
                         <td>{p.sku || '-'}</td>
                         <td>{p.category}</td>
                         <td>{p.store_name}</td>
-                        <td className="text-right">â‚±{Number(p.unit_price).toLocaleString()}</td>
-                        {canSeeCost && <td className="text-right">â‚±{Number(p.cost).toLocaleString()}</td>}
+                        <td className="text-right">{'\u20B1'}{Number(p.unit_price).toLocaleString()}</td>
+                        {canSeeCost && <td className="text-right">{'\u20B1'}{Number(p.cost).toLocaleString()}</td>}
                         <td className="text-right"><b>{p.current_quantity}</b></td>
                         {canEdit && (
                           <td className="text-right">
@@ -255,7 +247,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
                               <button className="btn btn-green btn-sm" onClick={() => setStockModal({ type: 'in', product: p, qty: 1 })}>Stock-in</button>
                               <button className="btn btn-orange btn-sm" onClick={() => setStockModal({ type: 'out', product: p, qty: 1 })}>Stock-out</button>
                               <button className="btn btn-black btn-sm" onClick={() => setStockModal({ type: 'adjust', product: p, qty: p.current_quantity })}>Adjust</button>
-                              <button className="btn btn-outline btn-sm" onClick={() => deleteProduct(p)}>ðŸ—‘</button>
+                              <button className="btn btn-outline btn-sm" aria-label="Delete product" onClick={() => deleteProduct(p)}>{'\u{1F5D1}'}</button>
                             </div>
                           </td>
                         )}
@@ -266,6 +258,37 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
               </tbody>
             </table>
           </div>
+          <div className="inventory-mobile-list">
+            {products.length === 0 ? <div className="empty-state">No products found.</div> : products.map((p) => {
+              const low = p.current_quantity <= p.min_stock_level;
+              return (
+                <article className="inventory-product-card" key={p.id}>
+                  <div className="inventory-product-heading">
+                    <strong>{p.name}</strong>
+                    {low && <span className="badge badge-low">Low stock</span>}
+                  </div>
+                  <div className="inventory-product-details">
+                    <div><span>SKU</span><b>{p.sku || '-'}</b></div>
+                    <div><span>Category</span><b>{p.category}</b></div>
+                    <div><span>Store</span><b>{p.store_name}</b></div>
+                    <div><span>Price</span><b>{'\u20B1'}{Number(p.unit_price).toLocaleString()}</b></div>
+                    {canSeeCost && <div><span>Cost</span><b>{'\u20B1'}{Number(p.cost).toLocaleString()}</b></div>}
+                    <div><span>Stock</span><b>{p.current_quantity}</b></div>
+                  </div>
+                  {canEdit && (
+                    <div className="inventory-product-actions">
+                      <button className="btn btn-outline btn-sm" onClick={() => openEdit(p)}>Edit</button>
+                      <button className="btn btn-green btn-sm" onClick={() => setStockModal({ type: 'in', product: p, qty: 1 })}>Stock-in</button>
+                      <button className="btn btn-orange btn-sm" onClick={() => setStockModal({ type: 'out', product: p, qty: 1 })}>Stock-out</button>
+                      <button className="btn btn-black btn-sm" onClick={() => setStockModal({ type: 'adjust', product: p, qty: p.current_quantity })}>Adjust</button>
+                      <button className="btn btn-outline btn-sm" aria-label="Delete product" onClick={() => deleteProduct(p)}>{'\u{1F5D1}'}</button>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+          </>
         )}
       </div>
 
@@ -274,7 +297,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
               <div className="modal-title">{editing ? 'Edit Product' : 'Add Product'}</div>
-              <button className="icon-btn" onClick={() => setShowForm(false)}>âœ•</button>
+              <button className="icon-btn" aria-label="Close" onClick={() => setShowForm(false)}>{'\u00D7'}</button>
             </div>
             <div className="form-group">
               <label>Product Name</label>
@@ -292,11 +315,11 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
             </div>
             <div className="form-grid-3">
               <div className="form-group">
-                <label>Price â‚±</label>
+                <label>Price {'\u20B1'}</label>
                 <input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Cost â‚±</label>
+                <label>Cost {'\u20B1'}</label>
                 <input type="number" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
               </div>
               <div className="form-group">
@@ -325,7 +348,7 @@ function Inventory({ authUser, stores, categories, setError, setSuccessMsg, refr
         <div className="modal-overlay" onClick={() => setStockModal(null)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title" style={{ marginBottom: 12 }}>
-              {stockModal.type === 'in' ? 'Stock-in' : stockModal.type === 'out' ? 'Stock-out' : 'Adjust Stock'} â€¢ {stockModal.product.name}
+              {stockModal.type === 'in' ? 'Stock-in' : stockModal.type === 'out' ? 'Stock-out' : 'Adjust Stock'} {'\u2022'} {stockModal.product.name}
             </div>
             <div className="summary-box" style={{ marginBottom: 12 }}>
               <div className="summary-row"><span>Current Stock</span><span>{stockModal.product.current_quantity}</span></div>
